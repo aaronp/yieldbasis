@@ -1,0 +1,39 @@
+{
+  "name": "Software Dependencies",
+  "description": "Bi-directional graph showing package dependencies",
+  "nodes": [
+    { "id": "app", "label": "app", "type": "application", "version": "1.0.0", "size": 45000 },
+    { "id": "router", "label": "router", "type": "library", "version": "4.2.1", "size": 12000 },
+    { "id": "state", "label": "state", "type": "library", "version": "2.1.0", "size": 8500 },
+    { "id": "ui", "label": "ui", "type": "library", "version": "3.0.0", "size": 28000 },
+    { "id": "http", "label": "http", "type": "library", "version": "1.5.2", "size": 6200 },
+    { "id": "auth", "label": "auth", "type": "library", "version": "2.0.1", "size": 9800 },
+    { "id": "utils", "label": "utils", "type": "library", "version": "1.2.0", "size": 3400 },
+    { "id": "logger", "label": "logger", "type": "library", "version": "1.0.5", "size": 2100 },
+    { "id": "crypto", "label": "crypto", "type": "library", "version": "3.1.0", "size": 15000 },
+    { "id": "validator", "label": "validator", "type": "library", "version": "2.3.0", "size": 4500 },
+    { "id": "db", "label": "db", "type": "library", "version": "5.0.0", "size": 22000 },
+    { "id": "cache", "label": "cache", "type": "library", "version": "1.8.0", "size": 5600 }
+  ],
+  "edges": [
+    { "source": "app", "target": "router", "type": "depends", "optional": false },
+    { "source": "app", "target": "state", "type": "depends", "optional": false },
+    { "source": "app", "target": "ui", "type": "depends", "optional": false },
+    { "source": "app", "target": "auth", "type": "depends", "optional": false },
+    { "source": "router", "target": "utils", "type": "depends", "optional": false },
+    { "source": "state", "target": "utils", "type": "depends", "optional": false },
+    { "source": "state", "target": "logger", "type": "depends", "optional": true },
+    { "source": "ui", "target": "utils", "type": "depends", "optional": false },
+    { "source": "ui", "target": "validator", "type": "depends", "optional": false },
+    { "source": "auth", "target": "http", "type": "depends", "optional": false },
+    { "source": "auth", "target": "crypto", "type": "depends", "optional": false },
+    { "source": "auth", "target": "cache", "type": "depends", "optional": true },
+    { "source": "http", "target": "utils", "type": "depends", "optional": false },
+    { "source": "http", "target": "logger", "type": "depends", "optional": false },
+    { "source": "db", "target": "cache", "type": "depends", "optional": false },
+    { "source": "db", "target": "logger", "type": "depends", "optional": false },
+    { "source": "app", "target": "db", "type": "depends", "optional": false },
+    { "source": "cache", "target": "utils", "type": "depends", "optional": false },
+    { "source": "crypto", "target": "utils", "type": "depends", "optional": false }
+  ]
+}

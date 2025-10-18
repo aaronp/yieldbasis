@@ -26,9 +26,9 @@ interface GraphData {
 }
 
 const DATASETS: Record<string, string> = {
-  'social-network': '../graph-data/social-network.json',
-  'hierarchy': '../graph-data/hierarchy.json',
-  'dependencies': '../graph-data/dependencies.json',
+  'social-network': '/graph-data/social-network.json',
+  'hierarchy': '/graph-data/hierarchy.json',
+  'dependencies': '/graph-data/dependencies.json',
 }
 
 const COLORS = [

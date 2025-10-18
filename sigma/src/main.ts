@@ -23,10 +23,10 @@ let graph: Graph
 let layoutRunning = false
 
 const DATASETS: Record<string, string> = {
-  'social-network': '../graph-data/social-network.json',
-  'hierarchy': '../graph-data/hierarchy.json',
-  'dependencies': '../graph-data/dependencies.json',
-  'large-network': '../graph-data/large-network.json',
+  'social-network': '/graph-data/social-network.json',
+  'hierarchy': '/graph-data/hierarchy.json',
+  'dependencies': '/graph-data/dependencies.json',
+  'large-network': '/graph-data/large-network.json',
 }
 
 const COLORS = [
@@ -77,8 +77,10 @@ function initGraph(data: GraphData) {
   // Add edges
   data.edges.forEach((edge, idx) => {
     try {
+      // Don't pass the 'type' attribute to sigma, it expects specific edge renderer types
+      const { type, ...edgeAttrs } = edge
       graph.addEdge(edge.source, edge.target, {
-        ...edge,
+        ...edgeAttrs,
         size: 2,
         color: '#cbd5e1',
       })
