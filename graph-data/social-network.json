@@ -1,0 +1,34 @@
+{
+  "name": "Social Network",
+  "description": "A simple social network showing friendships and interactions",
+  "nodes": [
+    { "id": "alice", "label": "Alice", "age": 28, "location": "NYC", "connections": 12 },
+    { "id": "bob", "label": "Bob", "age": 34, "location": "SF", "connections": 8 },
+    { "id": "carol", "label": "Carol", "age": 25, "location": "LA", "connections": 15 },
+    { "id": "david", "label": "David", "age": 42, "location": "NYC", "connections": 6 },
+    { "id": "eve", "label": "Eve", "age": 31, "location": "Seattle", "connections": 20 },
+    { "id": "frank", "label": "Frank", "age": 29, "location": "Boston", "connections": 10 },
+    { "id": "grace", "label": "Grace", "age": 26, "location": "Austin", "connections": 18 },
+    { "id": "henry", "label": "Henry", "age": 38, "location": "SF", "connections": 14 },
+    { "id": "iris", "label": "Iris", "age": 33, "location": "Denver", "connections": 9 },
+    { "id": "jack", "label": "Jack", "age": 27, "location": "Portland", "connections": 11 }
+  ],
+  "edges": [
+    { "source": "alice", "target": "bob", "type": "friend", "strength": 0.9 },
+    { "source": "alice", "target": "carol", "type": "friend", "strength": 0.7 },
+    { "source": "alice", "target": "david", "type": "colleague", "strength": 0.5 },
+    { "source": "bob", "target": "eve", "type": "friend", "strength": 0.8 },
+    { "source": "bob", "target": "henry", "type": "colleague", "strength": 0.6 },
+    { "source": "carol", "target": "frank", "type": "friend", "strength": 0.9 },
+    { "source": "carol", "target": "grace", "type": "friend", "strength": 0.85 },
+    { "source": "david", "target": "alice", "type": "colleague", "strength": 0.5 },
+    { "source": "eve", "target": "iris", "type": "friend", "strength": 0.7 },
+    { "source": "eve", "target": "grace", "type": "friend", "strength": 0.6 },
+    { "source": "frank", "target": "henry", "type": "colleague", "strength": 0.4 },
+    { "source": "grace", "target": "iris", "type": "friend", "strength": 0.8 },
+    { "source": "grace", "target": "jack", "type": "friend", "strength": 0.75 },
+    { "source": "henry", "target": "bob", "type": "colleague", "strength": 0.6 },
+    { "source": "iris", "target": "jack", "type": "friend", "strength": 0.9 },
+    { "source": "jack", "target": "frank", "type": "friend", "strength": 0.65 }
+  ]
+}

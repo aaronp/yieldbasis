@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>D3.js Graph Visualization</title>
+  </head>
+  <body>
+    <div id="app" class="flex h-screen bg-gray-50">
+      <!-- Sidebar -->
+      <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
+        <div class="p-4 border-b border-gray-200">
+          <h1 class="text-2xl font-bold text-gray-900">D3.js</h1>
+          <p class="text-sm text-gray-600 mt-1">Graph Visualization</p>
+        </div>
+
+        <!-- Dataset Selector -->
+        <div class="p-4 border-b border-gray-200">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Dataset</label>
+          <select id="dataset-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="social-network">Social Network</option>
+            <option value="hierarchy">Organization Hierarchy</option>
+            <option value="dependencies">Software Dependencies</option>
+            <option value="large-network">Large Network</option>
+          </select>
+        </div>
+
+        <!-- Search -->
+        <div class="p-4 border-b border-gray-200">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Search Nodes</label>
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Type to search..."
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <!-- Layout Controls -->
+        <div class="p-4 border-b border-gray-200">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Layout Algorithm</label>
+          <select id="layout-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+            <option value="force">Force-Directed</option>
+            <option value="tree">Tree (Hierarchy)</option>
+            <option value="radial">Radial Tree</option>
+          </select>
+          <button id="restart-simulation" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+            Restart Simulation
+          </button>
+        </div>
+
+        <!-- Node Details -->
+        <div class="flex-1 p-4 overflow-y-auto">
+          <div class="text-sm font-medium text-gray-700 mb-2">Selected Node</div>
+          <div id="node-details" class="text-sm text-gray-600">
+            Click on a node to see details
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="p-4 border-t border-gray-200 bg-gray-50">
+          <div class="text-xs text-gray-600">
+            <div id="stats">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Graph Container -->
+      <div class="flex-1 relative">
+        <svg id="graph-svg" class="w-full h-full bg-white"></svg>
+
+        <!-- Controls Overlay -->
+        <div class="absolute top-4 right-4 flex gap-2">
+          <button id="zoom-in" class="px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">+</button>
+          <button id="zoom-out" class="px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">-</button>
+          <button id="reset-view" class="px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">Reset</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

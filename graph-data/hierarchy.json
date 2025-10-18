@@ -1,0 +1,41 @@
+{
+  "name": "Organization Hierarchy",
+  "description": "An acyclic hierarchical graph showing organizational structure",
+  "nodes": [
+    { "id": "ceo", "label": "CEO", "title": "Chief Executive Officer", "department": "Executive", "level": 1 },
+    { "id": "cto", "label": "CTO", "title": "Chief Technology Officer", "department": "Engineering", "level": 2 },
+    { "id": "cfo", "label": "CFO", "title": "Chief Financial Officer", "department": "Finance", "level": 2 },
+    { "id": "cmo", "label": "CMO", "title": "Chief Marketing Officer", "department": "Marketing", "level": 2 },
+    { "id": "eng-lead", "label": "Eng Lead", "title": "Engineering Lead", "department": "Engineering", "level": 3 },
+    { "id": "qa-lead", "label": "QA Lead", "title": "QA Lead", "department": "Engineering", "level": 3 },
+    { "id": "acct-lead", "label": "Acct Lead", "title": "Accounting Lead", "department": "Finance", "level": 3 },
+    { "id": "sales-lead", "label": "Sales Lead", "title": "Sales Lead", "department": "Marketing", "level": 3 },
+    { "id": "content-lead", "label": "Content Lead", "title": "Content Lead", "department": "Marketing", "level": 3 },
+    { "id": "dev1", "label": "Dev 1", "title": "Senior Developer", "department": "Engineering", "level": 4 },
+    { "id": "dev2", "label": "Dev 2", "title": "Developer", "department": "Engineering", "level": 4 },
+    { "id": "dev3", "label": "Dev 3", "title": "Junior Developer", "department": "Engineering", "level": 4 },
+    { "id": "qa1", "label": "QA 1", "title": "QA Engineer", "department": "Engineering", "level": 4 },
+    { "id": "qa2", "label": "QA 2", "title": "QA Engineer", "department": "Engineering", "level": 4 },
+    { "id": "acct1", "label": "Acct 1", "title": "Accountant", "department": "Finance", "level": 4 },
+    { "id": "sales1", "label": "Sales 1", "title": "Sales Rep", "department": "Marketing", "level": 4 },
+    { "id": "sales2", "label": "Sales 2", "title": "Sales Rep", "department": "Marketing", "level": 4 }
+  ],
+  "edges": [
+    { "source": "ceo", "target": "cto", "type": "manages" },
+    { "source": "ceo", "target": "cfo", "type": "manages" },
+    { "source": "ceo", "target": "cmo", "type": "manages" },
+    { "source": "cto", "target": "eng-lead", "type": "manages" },
+    { "source": "cto", "target": "qa-lead", "type": "manages" },
+    { "source": "cfo", "target": "acct-lead", "type": "manages" },
+    { "source": "cmo", "target": "sales-lead", "type": "manages" },
+    { "source": "cmo", "target": "content-lead", "type": "manages" },
+    { "source": "eng-lead", "target": "dev1", "type": "manages" },
+    { "source": "eng-lead", "target": "dev2", "type": "manages" },
+    { "source": "eng-lead", "target": "dev3", "type": "manages" },
+    { "source": "qa-lead", "target": "qa1", "type": "manages" },
+    { "source": "qa-lead", "target": "qa2", "type": "manages" },
+    { "source": "acct-lead", "target": "acct1", "type": "manages" },
+    { "source": "sales-lead", "target": "sales1", "type": "manages" },
+    { "source": "sales-lead", "target": "sales2", "type": "manages" }
+  ]
+}
