@@ -47,8 +47,13 @@ let currentData: GraphData
 let selectedNode: string | null = null
 let draggedNode: Node | null = null
 let dragOffset = { x: 0, y: 0 }
+let physicsEnabled = true
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
+
+// Physics parameters
+const SPRING_STRENGTH = 0.15
+const DAMPING = 0.85
 
 async function loadDataset(datasetName: string): Promise<GraphData> {
   const response = await fetch(DATASETS[datasetName])
@@ -232,8 +237,19 @@ function handleMouseMove(e: MouseEvent) {
   if (!draggedNode) return
 
   const point = getSVGCoordinates(e)
-  draggedNode.x = point.x - dragOffset.x
-  draggedNode.y = point.y - dragOffset.y
+  const newX = point.x - dragOffset.x
+  const newY = point.y - dragOffset.y
+
+  const deltaX = newX - draggedNode.x
+  const deltaY = newY - draggedNode.y
+
+  draggedNode.x = newX
+  draggedNode.y = newY
+
+  // Apply physics to connected nodes if enabled
+  if (physicsEnabled) {
+    applySpringPhysics(draggedNode.id, deltaX, deltaY)
+  }
 
   // Update node position
   const circle = svg.querySelector(`circle[data-id="${draggedNode.id}"]`)
@@ -263,6 +279,48 @@ function getSVGCoordinates(e: MouseEvent): { x: number; y: number } {
     x: e.clientX - rect.left,
     y: e.clientY - rect.top,
   }
+}
+
+function applySpringPhysics(draggedNodeId: string, deltaX: number, deltaY: number) {
+  // Find connected nodes
+  const connectedNodeIds = new Set<string>()
+  edges.forEach(edge => {
+    if (edge.source === draggedNodeId) {
+      connectedNodeIds.add(edge.target)
+    } else if (edge.target === draggedNodeId) {
+      connectedNodeIds.add(edge.source)
+    }
+  })
+
+  // Apply spring force to connected nodes
+  connectedNodeIds.forEach(nodeId => {
+    const node = nodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    // Apply damped spring force
+    const springForceX = deltaX * SPRING_STRENGTH
+    const springForceY = deltaY * SPRING_STRENGTH
+
+    node.x += springForceX
+    node.y += springForceY
+
+    // Update visual position
+    const circle = svg.querySelector(`circle[data-id="${nodeId}"]`)
+    const label = svg.querySelector(`text[data-id="${nodeId}"]`)
+
+    if (circle) {
+      circle.setAttribute('cx', node.x.toString())
+      circle.setAttribute('cy', node.y.toString())
+    }
+
+    if (label) {
+      label.setAttribute('x', node.x.toString())
+      label.setAttribute('y', (node.y - 15).toString())
+    }
+
+    // Update edges connected to this node
+    updateEdges(nodeId)
+  })
 }
 
 function updateEdges(nodeId: string) {
@@ -427,6 +485,10 @@ document.getElementById('layout-select')!.addEventListener('change', (e) => {
 document.getElementById('apply-layout')!.addEventListener('click', () => {
   const layout = (document.getElementById('layout-select') as HTMLSelectElement).value
   applyLayout(layout)
+})
+
+document.getElementById('physics-toggle')!.addEventListener('change', (e) => {
+  physicsEnabled = (e.target as HTMLInputElement).checked
 })
 
 // Initialize

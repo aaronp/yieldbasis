@@ -36,6 +36,13 @@ let currentData: GraphData
 let currentLayout = 'force'
 let zoom: d3.ZoomBehavior<SVGSVGElement, unknown>
 
+// Physics parameters
+let physicsParams = {
+  chargeStrength: -300,
+  linkDistance: 100,
+  collisionRadius: 20,
+}
+
 async function loadDataset(datasetName: string): Promise<GraphData> {
   const response = await fetch(DATASETS[datasetName])
   return response.json()
@@ -101,14 +108,14 @@ function renderForceDirectedGraph(data: GraphData) {
     .attr('dy', -12)
     .text(d => d.label)
 
-  // Create simulation
+  // Create simulation with configurable physics
   simulation = d3.forceSimulation(data.nodes)
     .force('link', d3.forceLink<GraphNode, GraphEdge>(data.edges)
       .id(d => d.id)
-      .distance(100))
-    .force('charge', d3.forceManyBody().strength(-300))
+      .distance(physicsParams.linkDistance))
+    .force('charge', d3.forceManyBody().strength(physicsParams.chargeStrength))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collision', d3.forceCollide().radius(20))
+    .force('collision', d3.forceCollide().radius(physicsParams.collisionRadius))
 
   simulation.on('tick', () => {
     link
@@ -379,6 +386,32 @@ function renderGraph() {
   } else if (currentLayout === 'radial') {
     renderTreeLayout(currentData, true)
   }
+  updatePhysicsControlsVisibility()
+}
+
+function updatePhysicsControlsVisibility() {
+  const physicsControls = document.getElementById('physics-controls')!
+  if (currentLayout === 'force') {
+    physicsControls.style.display = 'block'
+  } else {
+    physicsControls.style.display = 'none'
+  }
+}
+
+function updatePhysicsParameters() {
+  if (!simulation) return
+
+  // Update force parameters
+  const linkForce = simulation.force('link') as d3.ForceLink<GraphNode, GraphEdge>
+  const chargeForce = simulation.force('charge') as d3.ForceManyBody<GraphNode>
+  const collisionForce = simulation.force('collision') as d3.ForceCollide<GraphNode>
+
+  if (linkForce) linkForce.distance(physicsParams.linkDistance)
+  if (chargeForce) chargeForce.strength(physicsParams.chargeStrength)
+  if (collisionForce) collisionForce.radius(physicsParams.collisionRadius)
+
+  // Reheat simulation
+  simulation.alpha(0.3).restart()
 }
 
 // Event listeners
@@ -415,6 +448,28 @@ document.getElementById('zoom-out')!.addEventListener('click', () => {
 
 document.getElementById('reset-view')!.addEventListener('click', () => {
   svg.transition().call(zoom.transform as any, d3.zoomIdentity)
+})
+
+// Physics control event listeners
+document.getElementById('charge-strength')!.addEventListener('input', (e) => {
+  const value = parseInt((e.target as HTMLInputElement).value)
+  physicsParams.chargeStrength = value
+  document.getElementById('charge-value')!.textContent = value.toString()
+  updatePhysicsParameters()
+})
+
+document.getElementById('link-distance')!.addEventListener('input', (e) => {
+  const value = parseInt((e.target as HTMLInputElement).value)
+  physicsParams.linkDistance = value
+  document.getElementById('link-value')!.textContent = value.toString()
+  updatePhysicsParameters()
+})
+
+document.getElementById('collision-radius')!.addEventListener('input', (e) => {
+  const value = parseInt((e.target as HTMLInputElement).value)
+  physicsParams.collisionRadius = value
+  document.getElementById('collision-value')!.textContent = value.toString()
+  updatePhysicsParameters()
 })
 
 // Initialize

@@ -2,6 +2,7 @@ import './style.css'
 import Graph from 'graphology'
 import Sigma from 'sigma'
 import forceAtlas2 from 'graphology-layout-forceatlas2'
+import circular from 'graphology-layout/circular'
 
 interface GraphData {
   name: string
@@ -21,6 +22,19 @@ interface GraphData {
 let sigma: Sigma
 let graph: Graph
 let layoutRunning = false
+let currentLayout = 'forceatlas2'
+let currentData: GraphData
+
+// Physics parameters for ForceAtlas2
+let physicsParams = {
+  gravity: 1,
+  scalingRatio: 2,
+  slowDown: 1,
+}
+
+// Node dragging state
+let draggedNode: string | null = null
+let isDragging = false
 
 const DATASETS: Record<string, string> = {
   'social-network': '/graph-data/social-network.json',
@@ -43,7 +57,139 @@ async function loadDataset(datasetName: string): Promise<GraphData> {
   return response.json()
 }
 
+// Tree layout helper functions
+interface TreeNode {
+  id: string
+  children: TreeNode[]
+  x?: number
+  y?: number
+  depth?: number
+}
+
+function buildTree(data: GraphData): TreeNode | null {
+  // Find nodes with no incoming edges
+  const incomingEdges = new Map<string, number>()
+  data.nodes.forEach(n => incomingEdges.set(n.id, 0))
+  data.edges.forEach(e => {
+    incomingEdges.set(e.target, (incomingEdges.get(e.target) || 0) + 1)
+  })
+
+  // Find root (node with level 1 or no incoming edges)
+  let roots = data.nodes.filter(n =>
+    incomingEdges.get(n.id) === 0 || n.level === 1
+  )
+
+  if (roots.length === 0) {
+    roots = [data.nodes[0]]
+  }
+
+  // Build adjacency map
+  const adjacency = new Map<string, string[]>()
+  data.edges.forEach(e => {
+    if (!adjacency.has(e.source)) {
+      adjacency.set(e.source, [])
+    }
+    adjacency.get(e.source)!.push(e.target)
+  })
+
+  // Build tree recursively
+  const buildNode = (id: string, visited = new Set<string>()): TreeNode => {
+    if (visited.has(id)) {
+      return { id, children: [] }
+    }
+    visited.add(id)
+
+    const children = (adjacency.get(id) || [])
+      .filter(childId => !visited.has(childId))
+      .map(childId => buildNode(childId, visited))
+
+    return { id, children }
+  }
+
+  return buildNode(roots[0].id)
+}
+
+function layoutTree(root: TreeNode, width: number, height: number): void {
+  // Calculate tree dimensions
+  const countLeaves = (node: TreeNode): number => {
+    if (node.children.length === 0) return 1
+    return node.children.reduce((sum, child) => sum + countLeaves(child), 0)
+  }
+
+  const maxDepth = (node: TreeNode, depth = 0): number => {
+    if (node.children.length === 0) return depth
+    return Math.max(...node.children.map(child => maxDepth(child, depth + 1)))
+  }
+
+  const leaves = countLeaves(root)
+  const depth = maxDepth(root)
+
+  // Layout nodes
+  const layout = (node: TreeNode, x: number, y: number, availableWidth: number, currentDepth: number): void => {
+    node.x = x + availableWidth / 2
+    node.y = y
+    node.depth = currentDepth
+
+    if (node.children.length === 0) return
+
+    const childLeaves = node.children.map(countLeaves)
+    const totalLeaves = childLeaves.reduce((a, b) => a + b, 0)
+
+    let currentX = x
+    node.children.forEach((child, i) => {
+      const childWidth = (childLeaves[i] / totalLeaves) * availableWidth
+      layout(child, currentX, y + (height - 100) / depth, childWidth, currentDepth + 1)
+      currentX += childWidth
+    })
+  }
+
+  layout(root, 50, 50, width - 100, 0)
+}
+
+function layoutRadialTree(root: TreeNode, width: number, height: number): void {
+  const centerX = width / 2
+  const centerY = height / 2
+  const maxRadius = Math.min(width, height) / 2 - 50
+
+  const maxDepth = (node: TreeNode, depth = 0): number => {
+    if (node.children.length === 0) return depth
+    return Math.max(...node.children.map(child => maxDepth(child, depth + 1)))
+  }
+
+  const depth = maxDepth(root)
+
+  const layout = (node: TreeNode, angle: number, angleSpan: number, currentDepth: number): void => {
+    const radius = currentDepth === 0 ? 0 : (currentDepth / depth) * maxRadius
+    node.x = centerX + radius * Math.cos(angle)
+    node.y = centerY + radius * Math.sin(angle)
+    node.depth = currentDepth
+
+    if (node.children.length === 0) return
+
+    const childAngleSpan = angleSpan / node.children.length
+    let currentAngle = angle - angleSpan / 2
+
+    node.children.forEach(child => {
+      layout(child, currentAngle + childAngleSpan / 2, childAngleSpan, currentDepth + 1)
+      currentAngle += childAngleSpan
+    })
+  }
+
+  layout(root, -Math.PI / 2, 2 * Math.PI, 0)
+}
+
+function applyTreeToGraph(root: TreeNode): void {
+  const apply = (node: TreeNode): void => {
+    graph.setNodeAttribute(node.id, 'x', node.x!)
+    graph.setNodeAttribute(node.id, 'y', node.y!)
+    node.children.forEach(apply)
+  }
+  apply(root)
+}
+
 function initGraph(data: GraphData) {
+  currentData = data
+
   // Clear existing graph
   if (graph) {
     graph.clear()
@@ -106,6 +252,41 @@ function initGraph(data: GraphData) {
     sigma.on('clickStage', () => {
       clearHighlight()
       clearNodeDetails()
+    })
+
+    // Enable node dragging
+    sigma.on('downNode', (e) => {
+      isDragging = true
+      draggedNode = e.node
+      graph.setNodeAttribute(e.node, 'highlighted', true)
+    })
+
+    sigma.getMouseCaptor().on('mousemovebody', (e) => {
+      if (!isDragging || !draggedNode) return
+
+      // Get new position
+      const pos = sigma.viewportToGraph(e)
+
+      // Update node position
+      graph.setNodeAttribute(draggedNode, 'x', pos.x)
+      graph.setNodeAttribute(draggedNode, 'y', pos.y)
+
+      // Prevent sigma from moving the graph
+      e.preventSigmaDefault()
+      e.original.preventDefault()
+      e.original.stopPropagation()
+    })
+
+    sigma.getMouseCaptor().on('mouseup', () => {
+      if (draggedNode) {
+        graph.removeNodeAttribute(draggedNode, 'highlighted')
+      }
+      isDragging = false
+      draggedNode = null
+    })
+
+    sigma.getMouseCaptor().on('mousedown', () => {
+      if (!sigma.getCustomBBox()) sigma.setCustomBBox(sigma.getBBox())
     })
   } else {
     sigma.refresh()
@@ -195,10 +376,36 @@ function clearHighlight() {
 
 function applyLayout() {
   const btn = document.getElementById('layout-btn') as HTMLButtonElement
+  const container = document.getElementById('sigma-container')!
+  const width = container.clientWidth
+  const height = container.clientHeight
 
+  if (currentLayout === 'circular') {
+    // Apply circular layout instantly
+    circular.assign(graph)
+    sigma.refresh()
+    return
+  }
+
+  if (currentLayout === 'tree' || currentLayout === 'radial') {
+    // Build and apply tree layout
+    const tree = buildTree(currentData)
+    if (tree) {
+      if (currentLayout === 'tree') {
+        layoutTree(tree, width, height)
+      } else {
+        layoutRadialTree(tree, width, height)
+      }
+      applyTreeToGraph(tree)
+      sigma.refresh()
+    }
+    return
+  }
+
+  // ForceAtlas2 layout
   if (layoutRunning) {
     layoutRunning = false
-    btn.textContent = 'Apply ForceAtlas2'
+    btn.textContent = 'Apply Layout'
     btn.classList.remove('bg-red-600', 'hover:bg-red-700')
     btn.classList.add('bg-blue-600', 'hover:bg-blue-700')
     return
@@ -209,14 +416,19 @@ function applyLayout() {
   btn.classList.remove('bg-blue-600', 'hover:bg-blue-700')
   btn.classList.add('bg-red-600', 'hover:bg-red-700')
 
-  const settings = forceAtlas2.inferSettings(graph)
+  const settings = {
+    ...forceAtlas2.inferSettings(graph),
+    gravity: physicsParams.gravity,
+    scalingRatio: physicsParams.scalingRatio,
+    slowDown: physicsParams.slowDown,
+  }
   let iterations = 0
   const maxIterations = 500
 
   const iterate = () => {
     if (!layoutRunning || iterations >= maxIterations) {
       layoutRunning = false
-      btn.textContent = 'Apply ForceAtlas2'
+      btn.textContent = 'Apply Layout'
       btn.classList.remove('bg-red-600', 'hover:bg-red-700')
       btn.classList.add('bg-blue-600', 'hover:bg-blue-700')
       return
@@ -230,6 +442,20 @@ function applyLayout() {
   }
 
   iterate()
+}
+
+function updatePhysicsControlsVisibility() {
+  const physicsControls = document.getElementById('physics-controls')!
+  if (currentLayout === 'forceatlas2') {
+    physicsControls.style.display = 'block'
+  } else {
+    physicsControls.style.display = 'none'
+  }
+}
+
+function updatePhysicsSettings() {
+  // Only applies to running ForceAtlas2 simulations
+  // Settings will be picked up on next layout run
 }
 
 function updateStats() {
@@ -277,7 +503,31 @@ document.getElementById('search-input')!.addEventListener('input', (e) => {
   searchNodes((e.target as HTMLInputElement).value)
 })
 
+document.getElementById('layout-select')!.addEventListener('change', (e) => {
+  currentLayout = (e.target as HTMLSelectElement).value
+  updatePhysicsControlsVisibility()
+})
+
 document.getElementById('layout-btn')!.addEventListener('click', applyLayout)
+
+// Physics control event listeners
+document.getElementById('gravity')!.addEventListener('input', (e) => {
+  const value = parseFloat((e.target as HTMLInputElement).value)
+  physicsParams.gravity = value
+  document.getElementById('gravity-value')!.textContent = value.toFixed(1)
+})
+
+document.getElementById('scaling-ratio')!.addEventListener('input', (e) => {
+  const value = parseFloat((e.target as HTMLInputElement).value)
+  physicsParams.scalingRatio = value
+  document.getElementById('scaling-value')!.textContent = value.toFixed(1)
+})
+
+document.getElementById('slow-down')!.addEventListener('input', (e) => {
+  const value = parseFloat((e.target as HTMLInputElement).value)
+  physicsParams.slowDown = value
+  document.getElementById('slowdown-value')!.textContent = value.toFixed(1)
+})
 
 document.getElementById('zoom-in')!.addEventListener('click', () => {
   const camera = sigma.getCamera()
