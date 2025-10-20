@@ -62,6 +62,66 @@ function initSVG() {
   g = svg.append('g')
 }
 
+// Icon mapping based on node attributes
+function getNodeIcon(node: GraphNode): string {
+  // Check various attributes to determine icon
+  const label = (node.label || '').toLowerCase()
+  const type = (node.type || '').toLowerCase()
+  const department = (node.department || '').toLowerCase()
+
+  // People/Users
+  if (label.includes('alice') || label.includes('bob') || label.includes('carol') ||
+      label.includes('david') || label.includes('eve') || label.includes('frank') ||
+      label.includes('grace') || label.includes('henry') || label.includes('iris') ||
+      label.includes('jack') || department === 'engineering' || department === 'marketing' ||
+      department === 'finance' || department === 'executive') {
+    return '👤'
+  }
+
+  // Executive/CEO
+  if (label.includes('ceo') || label.includes('cto') || label.includes('cfo') || label.includes('cmo')) {
+    return '👔'
+  }
+
+  // Leads/Managers
+  if (label.includes('lead')) {
+    return '⭐'
+  }
+
+  // Developers/Engineers
+  if (label.includes('dev') || label.includes('qa') || label.includes('engineer')) {
+    return '💻'
+  }
+
+  // Sales/Marketing
+  if (label.includes('sales') || label.includes('content')) {
+    return '📊'
+  }
+
+  // Accounting/Finance
+  if (label.includes('acct') || label.includes('accountant')) {
+    return '💰'
+  }
+
+  // Applications
+  if (type === 'application' || label === 'app') {
+    return '📱'
+  }
+
+  // Libraries/Packages
+  if (type === 'library') {
+    return '📦'
+  }
+
+  // Nodes (generic network nodes)
+  if (label.startsWith('node ') || label.startsWith('n')) {
+    return '🔵'
+  }
+
+  // Default
+  return '●'
+}
+
 function renderForceDirectedGraph(data: GraphData) {
   const width = (svg.node() as SVGSVGElement).clientWidth
   const height = (svg.node() as SVGSVGElement).clientHeight
@@ -83,20 +143,34 @@ function renderForceDirectedGraph(data: GraphData) {
     .attr('class', 'link')
     .attr('stroke-width', 2)
 
-  // Create nodes
-  const node = g.append('g')
-    .selectAll('circle')
+  // Create node groups (to hold both background circle and icon)
+  const nodeGroup = g.append('g')
+    .selectAll('g')
     .data(data.nodes)
-    .join('circle')
-    .attr('class', 'node')
-    .attr('r', 8)
-    .attr('fill', d => colorScale(d.group || d.type || d.department || 'default'))
+    .join('g')
+    .attr('class', 'node-group')
     .call(drag(simulation) as any)
     .on('click', (event, d) => {
       event.stopPropagation()
       displayNodeDetails(d)
       highlightNode(d.id)
     })
+
+  // Background circles
+  nodeGroup.append('circle')
+    .attr('class', 'node')
+    .attr('r', 12)
+    .attr('fill', d => colorScale(d.group || d.type || d.department || 'default'))
+    .attr('opacity', 0.3)
+
+  // Icon text
+  nodeGroup.append('text')
+    .attr('class', 'node-icon')
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'central')
+    .attr('font-size', '16px')
+    .attr('pointer-events', 'none')
+    .text(d => getNodeIcon(d))
 
   // Create labels
   const label = g.append('g')
@@ -105,7 +179,7 @@ function renderForceDirectedGraph(data: GraphData) {
     .join('text')
     .attr('class', 'node-label')
     .attr('text-anchor', 'middle')
-    .attr('dy', -12)
+    .attr('dy', 20)
     .text(d => d.label)
 
   // Create simulation with configurable physics
@@ -124,9 +198,8 @@ function renderForceDirectedGraph(data: GraphData) {
       .attr('x2', d => (d.target as GraphNode).x!)
       .attr('y2', d => (d.target as GraphNode).y!)
 
-    node
-      .attr('cx', d => d.x!)
-      .attr('cy', d => d.y!)
+    nodeGroup
+      .attr('transform', d => `translate(${d.x},${d.y})`)
 
     label
       .attr('x', d => d.x!)
@@ -186,15 +259,13 @@ function renderTreeLayout(data: GraphData, radial = false) {
     .attr('d', linkGenerator as any)
     .attr('transform', radial ? `translate(${width / 2},${height / 2})` : 'translate(50,50)')
 
-  // Nodes
-  const nodes = g.append('g')
+  // Node groups
+  const nodeGroups = g.append('g')
     .attr('transform', radial ? `translate(${width / 2},${height / 2})` : 'translate(50,50)')
-    .selectAll('circle')
+    .selectAll('g')
     .data(treeData.descendants())
-    .join('circle')
-    .attr('class', 'node')
-    .attr('r', 8)
-    .attr('fill', d => colorScale((d.data as GraphNode).group || (d.data as GraphNode).type || (d.data as GraphNode).department || 'default'))
+    .join('g')
+    .attr('class', 'node-group')
     .attr('transform', d => radial
       ? `rotate(${(d.x as number) * 180 / Math.PI - 90}) translate(${d.y},0)`
       : `translate(${d.y},${d.x})`)
@@ -203,6 +274,22 @@ function renderTreeLayout(data: GraphData, radial = false) {
       displayNodeDetails(d.data as GraphNode)
       highlightNode((d.data as GraphNode).id)
     })
+
+  // Background circles
+  nodeGroups.append('circle')
+    .attr('class', 'node')
+    .attr('r', 12)
+    .attr('fill', d => colorScale((d.data as GraphNode).group || (d.data as GraphNode).type || (d.data as GraphNode).department || 'default'))
+    .attr('opacity', 0.3)
+
+  // Icons
+  nodeGroups.append('text')
+    .attr('class', 'node-icon')
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'central')
+    .attr('font-size', '16px')
+    .attr('pointer-events', 'none')
+    .text(d => getNodeIcon(d.data as GraphNode))
 
   // Labels
   g.append('g')
@@ -215,8 +302,8 @@ function renderTreeLayout(data: GraphData, radial = false) {
       ? `rotate(${(d.x as number) * 180 / Math.PI - 90}) translate(${d.y},0) rotate(${(d.x as number) >= Math.PI ? 180 : 0})`
       : `translate(${d.y},${d.x})`)
     .attr('text-anchor', d => radial ? ((d.x as number) >= Math.PI ? 'end' : 'start') : 'middle')
-    .attr('dy', radial ? '0.31em' : -12)
-    .attr('dx', radial ? ((d.x as number) >= Math.PI ? -12 : 12) : 0)
+    .attr('dy', radial ? '0.31em' : 20)
+    .attr('dx', radial ? ((d.x as number) >= Math.PI ? -20 : 20) : 0)
     .text(d => (d.data as GraphNode).label)
 
   svg.on('click', () => {
@@ -308,9 +395,30 @@ function clearNodeDetails() {
 }
 
 function highlightNode(nodeId: string) {
+  // Highlight node groups
+  g.selectAll<SVGGElement, GraphNode>('g.node-group')
+    .attr('opacity', function(d: any) {
+      const id = d.id || d.data?.id
+      return id === nodeId ? 1 : 0.3
+    })
+
+  // Update circles in node groups
   g.selectAll<SVGCircleElement, GraphNode>('circle.node')
-    .attr('opacity', d => d.id === nodeId ? 1 : 0.2)
-    .attr('r', d => d.id === nodeId ? 12 : 8)
+    .attr('opacity', function(d: any) {
+      const id = d.id || d.data?.id
+      return id === nodeId ? 0.8 : 0.2
+    })
+    .attr('r', function(d: any) {
+      const id = d.id || d.data?.id
+      return id === nodeId ? 16 : 12
+    })
+
+  // Highlight icons
+  g.selectAll<SVGTextElement, GraphNode>('text.node-icon')
+    .attr('font-size', function(d: any) {
+      const id = d.id || d.data?.id
+      return id === nodeId ? '20px' : '16px'
+    })
 
   g.selectAll<SVGLineElement, GraphEdge>('line.link')
     .attr('opacity', d => {
@@ -338,9 +446,15 @@ function highlightNode(nodeId: string) {
 }
 
 function clearHighlight() {
-  g.selectAll('circle.node')
+  g.selectAll('g.node-group')
     .attr('opacity', 1)
-    .attr('r', 8)
+
+  g.selectAll('circle.node')
+    .attr('opacity', 0.3)
+    .attr('r', 12)
+
+  g.selectAll('text.node-icon')
+    .attr('font-size', '16px')
 
   g.selectAll('line.link, path.link')
     .attr('opacity', 1)
