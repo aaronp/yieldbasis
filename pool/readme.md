@@ -8,10 +8,21 @@ YieldBasis provides leveraged exposure to Curve LP positions through an automate
 
 ## Features
 
-### Interactive Controls
+### Quick Scenarios
+Pre-configured market scenarios that instantly set realistic values:
+- **Balanced Bull Market**: Healthy collateral with rising prices and moderate yields
+- **Over-collateralized Bear Market**: Conservative position with falling prices but stable yields
+- **High Yield Bull Run**: Rising prices with exceptional interest rates
+- **Conservative Entry**: Small position at market price with low risk
+- **Market Crash**: Significant price drop testing liquidation thresholds
+- **Aggressive Growth**: Large position in strong bull market with high yields
+
+### Interactive Controls (Sticky)
+Controls stay visible while scrolling for easy adjustment:
 - **Collateral Slider**: Adjust your Curve LP token deposit ($1k - $100k)
 - **Market Price**: Simulate price changes (-50% to +50%)
 - **Interest Rate**: Adjust annual yield rate (0% - 20%)
+- Manual adjustments automatically switch to "Custom Configuration"
 
 ### Visual Components
 
@@ -79,6 +90,15 @@ Yields come from three sources:
 ### Market Isolation
 Each market (WBTC, cbBTC, etc.) operates independently with isolated contracts, preventing cross-market contagion.
 
+## Responsive Design
+
+The visualization adapts to screen size:
+- **Mobile/Tablet**: Single column layout
+- **Desktop (1280px+)**: 2-column grid
+- **Ultra-wide (1536px+)**: 4-column grid for maximum information density
+- **Sticky Controls**: Always visible at top when scrolling
+- **Wide Layout**: Reduced horizontal padding on large screens (up to 1920px)
+
 ## Educational Purpose
 
 This visualization helps understand:
@@ -87,6 +107,7 @@ This visualization helps understand:
 - How bonding curves maintain constant leverage
 - Yield distribution across different timeframes
 - The impact of market price changes on positions
+- Real-world scenarios through pre-configured examples
 
 ## Customization
 

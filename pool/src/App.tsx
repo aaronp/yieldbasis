@@ -4,10 +4,71 @@ import LeverageCalculator from './components/LeverageCalculator'
 import YieldDistribution from './components/YieldDistribution'
 import BondingCurve from './components/BondingCurve'
 
+interface Scenario {
+  name: string
+  description: string
+  collateral: number
+  marketPrice: number
+  interestRate: number
+}
+
+const SCENARIOS: Scenario[] = [
+  {
+    name: 'Balanced Bull Market',
+    description: 'Healthy collateral with rising prices and moderate yields',
+    collateral: 25000,
+    marketPrice: 1.2,
+    interestRate: 8,
+  },
+  {
+    name: 'Over-collateralized Bear Market',
+    description: 'Conservative position with falling prices but stable yields',
+    collateral: 50000,
+    marketPrice: 0.7,
+    interestRate: 6,
+  },
+  {
+    name: 'High Yield Bull Run',
+    description: 'Rising prices with exceptional interest rates',
+    collateral: 15000,
+    marketPrice: 1.4,
+    interestRate: 15,
+  },
+  {
+    name: 'Conservative Entry',
+    description: 'Small position at market price with low risk',
+    collateral: 5000,
+    marketPrice: 1.0,
+    interestRate: 4,
+  },
+  {
+    name: 'Market Crash',
+    description: 'Significant price drop testing liquidation thresholds',
+    collateral: 30000,
+    marketPrice: 0.5,
+    interestRate: 3,
+  },
+  {
+    name: 'Aggressive Growth',
+    description: 'Large position in strong bull market with high yields',
+    collateral: 80000,
+    marketPrice: 1.5,
+    interestRate: 12,
+  },
+]
+
 function App() {
   const [collateral, setCollateral] = useState(10000) // USD value
   const [marketPrice, setMarketPrice] = useState(1.0) // Price multiplier
   const [interestRate, setInterestRate] = useState(5) // Annual %
+  const [selectedScenario, setSelectedScenario] = useState<string>('')
+
+  const applyScenario = (scenario: Scenario) => {
+    setCollateral(scenario.collateral)
+    setMarketPrice(scenario.marketPrice)
+    setInterestRate(scenario.interestRate)
+    setSelectedScenario(scenario.name)
+  }
 
   const LEV_RATIO = 4 / 9 // For 2x leverage
   const leverage = 2
@@ -25,10 +86,10 @@ function App() {
   const annualYield = (exposure * interestRate) / 100
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-8">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <h1 className="text-3xl font-bold text-gray-900">
             YieldBasis Pool Visualization
           </h1>
@@ -38,13 +99,38 @@ function App() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Controls */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Market Controls</h2>
+      {/* Sticky Controls */}
+      <div className="sticky top-0 z-10 bg-white shadow-md border-b border-gray-200">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          {/* Scenario Selector */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Quick Scenarios
+            </label>
+            <select
+              value={selectedScenario}
+              onChange={(e) => {
+                const scenario = SCENARIOS.find(s => s.name === e.target.value)
+                if (scenario) applyScenario(scenario)
+              }}
+              className="w-full md:w-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="">Custom Configuration</option>
+              {SCENARIOS.map((scenario) => (
+                <option key={scenario.name} value={scenario.name}>
+                  {scenario.name}
+                </option>
+              ))}
+            </select>
+            {selectedScenario && (
+              <p className="mt-2 text-xs text-gray-600 italic">
+                {SCENARIOS.find(s => s.name === selectedScenario)?.description}
+              </p>
+            )}
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Sliders */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Collateral Slider */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -57,7 +143,10 @@ function App() {
                   max="100000"
                   step="1000"
                   value={collateral}
-                  onChange={(e) => setCollateral(Number(e.target.value))}
+                  onChange={(e) => {
+                    setCollateral(Number(e.target.value))
+                    setSelectedScenario('')
+                  }}
                   className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 />
                 <span className="text-sm font-mono text-gray-900 w-24 text-right">
@@ -78,7 +167,10 @@ function App() {
                   max="1.5"
                   step="0.01"
                   value={marketPrice}
-                  onChange={(e) => setMarketPrice(Number(e.target.value))}
+                  onChange={(e) => {
+                    setMarketPrice(Number(e.target.value))
+                    setSelectedScenario('')
+                  }}
                   className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 />
                 <span className="text-sm font-mono text-gray-900 w-24 text-right">
@@ -99,7 +191,10 @@ function App() {
                   max="20"
                   step="0.5"
                   value={interestRate}
-                  onChange={(e) => setInterestRate(Number(e.target.value))}
+                  onChange={(e) => {
+                    setInterestRate(Number(e.target.value))
+                    setSelectedScenario('')
+                  }}
                   className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 />
                 <span className="text-sm font-mono text-gray-900 w-24 text-right">
@@ -109,9 +204,12 @@ function App() {
             </div>
           </div>
         </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         {/* Visualizations Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-4 gap-6">
           {/* Pool Composition */}
           <PoolVisualization
             collateral={collateral * marketPrice}
@@ -143,7 +241,7 @@ function App() {
         </div>
 
         {/* Formula Explanation */}
-        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
+        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Mathematical Formula</h2>
           <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm">
             <div className="mb-2">
