@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web3 Logo Effects</title>
+  </head>
+  <body class="h-screen w-screen overflow-hidden">
+    <!-- Full screen canvas background -->
+    <canvas id="effect-canvas" class="fixed inset-0 w-full h-full"></canvas>
+
+    <!-- Centered control panel -->
+    <div class="fixed inset-0 flex items-center justify-center pointer-events-none">
+      <div class="bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 pointer-events-auto">
+        <div class="text-center mb-6">
+          <h1 class="text-3xl font-bold text-white mb-2">Web3 Effects</h1>
+          <p class="text-sm text-gray-400">Interactive Logo Animations</p>
+        </div>
+
+        <!-- Effect Selector -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-300 mb-2">Effect</label>
+          <select id="effect-select" class="w-full px-3 py-2 bg-gray-800 text-white border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="fox-mesh">MetaMask Fox Mesh</option>
+            <option value="liquid">Liquid Morph</option>
+            <option value="network">Network Mesh</option>
+            <option value="particles">Particle Field</option>
+          </select>
+        </div>
+
+        <!-- Controls -->
+        <div class="space-y-4 mb-4">
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Intensity</label>
+            <input type="range" id="intensity-slider" min="0" max="100" value="50" class="w-full">
+          </div>
+
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Speed</label>
+            <input type="range" id="speed-slider" min="0" max="100" value="50" class="w-full">
+          </div>
+
+          <div>
+            <label class="text-xs text-gray-400 block mb-1">Color Scheme</label>
+            <select id="color-select" class="w-full px-3 py-2 bg-gray-800 text-white border border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="web3">Web3 (Orange/Blue)</option>
+              <option value="cyber">Cyberpunk</option>
+              <option value="matrix">Matrix Green</option>
+              <option value="neon">Neon Purple</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Effect Info -->
+        <div class="border-t border-gray-700 pt-4 mb-4">
+          <div id="effect-info" class="text-xs text-gray-400">
+            Select an effect to see details
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="text-center text-xs text-gray-500">
+          <div id="stats">FPS: --</div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
