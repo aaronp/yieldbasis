@@ -1,4 +1,4 @@
-import { Participant, SimulationState, ParticipantShape, TimelineMessage } from '../core/types';
+import { Participant, SimulationState, TimelineMessage } from '../core/types';
 
 export class TimelineRenderer {
   private canvas: HTMLCanvasElement;
@@ -26,7 +26,7 @@ export class TimelineRenderer {
     this.mouseY = e.clientY - rect.top;
   }
 
-  private handleClick(e: MouseEvent): void {
+  private handleClick(_e: MouseEvent): void {
     // Toggle clicked message
     if (this.hoveredMessageId) {
       this.clickedMessageId = this.clickedMessageId === this.hoveredMessageId ? null : this.hoveredMessageId;
@@ -163,9 +163,20 @@ export class TimelineRenderer {
       const endX = toParticipant.x;
       const endY = toParticipant.y;
 
-      // Calculate current position
-      const currentX = startX + (endX - startX) * msg.progress;
-      const currentY = startY + (endY - startY) * msg.progress;
+      const isSelfMessage = msg.from === msg.to;
+      let currentX: number;
+      let currentY: number;
+
+      if (isSelfMessage) {
+        // Draw arc path for self-messages
+        const { x, y } = this.getArcPoint(startX, startY, msg.progress);
+        currentX = x;
+        currentY = y;
+      } else {
+        // Linear interpolation for normal messages
+        currentX = startX + (endX - startX) * msg.progress;
+        currentY = startY + (endY - startY) * msg.progress;
+      }
 
       // Check if mouse is hovering over this message
       const dist = Math.sqrt(Math.pow(this.mouseX - currentX, 2) + Math.pow(this.mouseY - currentY, 2));
@@ -176,25 +187,41 @@ export class TimelineRenderer {
 
       const isClicked = this.clickedMessageId === msg.id;
 
-      // Draw full path line (faded)
-      this.ctx.beginPath();
-      this.ctx.moveTo(startX, startY);
-      this.ctx.lineTo(endX, endY);
-      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-      this.ctx.lineWidth = 1;
-      this.ctx.setLineDash([4, 4]);
-      this.ctx.stroke();
-      this.ctx.setLineDash([]);
+      if (isSelfMessage) {
+        // Draw arc path (faded)
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([4, 4]);
+        this.drawArc(startX, startY, false);
+        this.ctx.setLineDash([]);
 
-      // Draw progress line
-      this.ctx.beginPath();
-      this.ctx.moveTo(startX, startY);
-      this.ctx.lineTo(currentX, currentY);
-      this.ctx.strokeStyle = msg.color || '#00d4ff';
-      this.ctx.lineWidth = 3;
-      this.ctx.setLineDash([8, 4]);
-      this.ctx.stroke();
-      this.ctx.setLineDash([]);
+        // Draw progress arc
+        this.ctx.strokeStyle = msg.color || '#00d4ff';
+        this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([8, 4]);
+        this.drawArc(startX, startY, false, msg.progress);
+        this.ctx.setLineDash([]);
+      } else {
+        // Draw straight path line (faded)
+        this.ctx.beginPath();
+        this.ctx.moveTo(startX, startY);
+        this.ctx.lineTo(endX, endY);
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([4, 4]);
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+
+        // Draw progress line
+        this.ctx.beginPath();
+        this.ctx.moveTo(startX, startY);
+        this.ctx.lineTo(currentX, currentY);
+        this.ctx.strokeStyle = msg.color || '#00d4ff';
+        this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([8, 4]);
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+      }
 
       // Draw message packet
       const packetSize = isHovered || isClicked ? 15 : 12;
@@ -231,6 +258,32 @@ export class TimelineRenderer {
         this.ctx.fillText(displayText, currentX, currentY - 17);
       }
     });
+  }
+
+  private getArcPoint(centerX: number, centerY: number, progress: number): { x: number; y: number } {
+    // Create a circular arc that goes out and back
+    const arcRadius = 80;
+    const angle = progress * Math.PI * 2; // Full circle
+
+    const x = centerX + Math.cos(angle - Math.PI / 2) * arcRadius;
+    const y = centerY + Math.sin(angle - Math.PI / 2) * arcRadius;
+
+    return { x, y };
+  }
+
+  private drawArc(centerX: number, centerY: number, fill: boolean = false, progressLimit: number = 1.0): void {
+    const arcRadius = 80;
+    const startAngle = -Math.PI / 2;
+    const endAngle = startAngle + Math.PI * 2 * progressLimit;
+
+    this.ctx.beginPath();
+    this.ctx.arc(centerX, centerY, arcRadius, startAngle, endAngle);
+
+    if (fill) {
+      this.ctx.fill();
+    } else {
+      this.ctx.stroke();
+    }
   }
 
   private drawMessageTooltip(msg: TimelineMessage, state: SimulationState): void {

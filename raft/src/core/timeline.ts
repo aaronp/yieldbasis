@@ -1,4 +1,4 @@
-import { Participant, Message, TimelineMessage, SimulationState, ParticipantShape } from './types';
+import { Participant, Message, SimulationState, ParticipantShape } from './types';
 import gsap from 'gsap';
 
 export class TimelineSimulation {
@@ -35,6 +35,14 @@ export class TimelineSimulation {
     this.state.currentTime = 0;
     this.state.activeMessages = [];
     this.state.running = false;
+
+    // Reset all participants to invisible
+    this.state.participants.forEach((p) => {
+      p.visible = false;
+      p.opacity = 0;
+      p.x = this.CENTER_X;
+      p.y = this.CENTER_Y;
+    });
   }
 
   public setSpeed(speed: number) {
@@ -44,11 +52,7 @@ export class TimelineSimulation {
   public addParticipant(name: string, shape: ParticipantShape, color: string): string {
     const id = `p${Date.now()}`;
 
-    // Calculate new positions for all participants
-    const newCount = this.state.participants.length + 1;
-    const angleStep = (Math.PI * 2) / newCount;
-
-    // New participant starts at center with 0 opacity
+    // New participant starts at center with 0 opacity, initially not visible
     const newParticipant: Participant = {
       id,
       name,
@@ -57,12 +61,10 @@ export class TimelineSimulation {
       x: this.CENTER_X,
       y: this.CENTER_Y,
       opacity: 0,
+      visible: false,
     };
 
     this.state.participants.push(newParticipant);
-
-    // Recalculate positions for all participants
-    this.repositionParticipants();
 
     return id;
   }
@@ -174,6 +176,9 @@ export class TimelineSimulation {
       return msg.progress < 1;
     });
 
+    // Update participant visibility based on their message activity
+    this.updateParticipantVisibility();
+
     // Stop if we've passed all messages
     if (this.state.messages.length > 0) {
       const lastMessage = this.state.messages[this.state.messages.length - 1];
@@ -183,6 +188,90 @@ export class TimelineSimulation {
         this.state.running = false;
       }
     }
+  }
+
+  private updateParticipantVisibility() {
+    const APPEAR_BEFORE = 500; // Appear 500ms before first message
+    const DISAPPEAR_AFTER = 500; // Disappear 500ms after last message
+
+    // Calculate time window for each participant
+    this.state.participants.forEach((participant) => {
+      const participantMessages = this.state.messages.filter(
+        (m) => m.from === participant.id || m.to === participant.id
+      );
+
+      if (participantMessages.length === 0) {
+        participant.visible = false;
+        return;
+      }
+
+      // Find first and last times this participant is involved
+      let firstTime = Infinity;
+      let lastTime = -Infinity;
+
+      participantMessages.forEach((msg) => {
+        const msgStart = msg.timestamp;
+        const msgEnd = msg.timestamp + msg.duration;
+
+        if (msgStart < firstTime) firstTime = msgStart;
+        if (msgEnd > lastTime) lastTime = msgEnd;
+      });
+
+      // Participant should be visible from APPEAR_BEFORE first message to DISAPPEAR_AFTER last message
+      const shouldBeVisible =
+        this.state.currentTime >= firstTime - APPEAR_BEFORE &&
+        this.state.currentTime <= lastTime + DISAPPEAR_AFTER;
+
+      const wasVisible = participant.visible;
+
+      if (shouldBeVisible && !wasVisible) {
+        // Participant should appear
+        participant.visible = true;
+        this.onParticipantVisibilityChanged();
+      } else if (!shouldBeVisible && wasVisible) {
+        // Participant should disappear
+        participant.visible = false;
+        this.onParticipantVisibilityChanged();
+      }
+    });
+  }
+
+  private onParticipantVisibilityChanged() {
+    // Reposition only visible participants
+    const visibleParticipants = this.state.participants.filter((p) => p.visible);
+    const count = visibleParticipants.length;
+
+    if (count === 0) return;
+
+    const angleStep = (Math.PI * 2) / count;
+
+    visibleParticipants.forEach((participant, i) => {
+      const angle = i * angleStep - Math.PI / 2;
+      const targetX = this.CENTER_X + Math.cos(angle) * this.RADIUS;
+      const targetY = this.CENTER_Y + Math.sin(angle) * this.RADIUS;
+
+      // Animate to new position
+      gsap.to(participant, {
+        x: targetX,
+        y: targetY,
+        opacity: 1,
+        duration: 0.8,
+        ease: 'power2.inOut',
+      });
+    });
+
+    // Animate invisible participants to center
+    this.state.participants
+      .filter((p) => !p.visible)
+      .forEach((participant) => {
+        gsap.to(participant, {
+          x: this.CENTER_X,
+          y: this.CENTER_Y,
+          opacity: 0,
+          duration: 0.8,
+          ease: 'power2.inOut',
+        });
+      });
   }
 
   public seekTo(time: number) {
@@ -201,6 +290,9 @@ export class TimelineSimulation {
         });
       }
     });
+
+    // Update participant visibility for the seeked time
+    this.updateParticipantVisibility();
   }
 
   public getMaxTime(): number {

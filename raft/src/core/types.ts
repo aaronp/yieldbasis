@@ -10,6 +10,7 @@ export interface Participant {
   targetX?: number;
   targetY?: number;
   opacity: number;
+  visible: boolean; // Whether participant should be visible at current time
 }
 
 export interface Message {

@@ -41,6 +41,7 @@ class TimelineApp {
   private btnExport: HTMLButtonElement;
   private btnImport: HTMLButtonElement;
   private btnClear: HTMLButtonElement;
+  private btnLucky: HTMLButtonElement;
 
   constructor() {
     const canvas = document.getElementById('timeline-canvas') as HTMLCanvasElement;
@@ -77,6 +78,7 @@ class TimelineApp {
     this.btnExport = document.getElementById('btn-export') as HTMLButtonElement;
     this.btnImport = document.getElementById('btn-import') as HTMLButtonElement;
     this.btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
+    this.btnLucky = document.getElementById('btn-lucky') as HTMLButtonElement;
 
     this.setupEventListeners();
     this.startAnimationLoop();
@@ -121,6 +123,7 @@ class TimelineApp {
     this.btnExport.addEventListener('click', () => this.handleExport());
     this.btnImport.addEventListener('click', () => this.handleImport());
     this.btnClear.addEventListener('click', () => this.handleClear());
+    this.btnLucky.addEventListener('click', () => this.handleLucky());
   }
 
   private handleAddParticipant(): void {
@@ -322,6 +325,101 @@ class TimelineApp {
     this.updateMessageList();
     this.updateTotalTime();
     this.simulation.reset();
+  }
+
+  private handleLucky(): void {
+    // Clear existing data
+    const state = this.simulation.getState();
+    state.participants = [];
+    state.messages = [];
+    state.activeMessages = [];
+    state.currentTime = 0;
+    this.simulation.reset();
+
+    // Participant names and properties
+    const names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Theta', 'Lambda'];
+    const shapes: ParticipantShape[] = ['circle', 'square', 'triangle', 'hexagon'];
+    const colors = ['#4CAF50', '#2196F3', '#FF5722', '#9C27B0', '#FF9800', '#00BCD4', '#E91E63', '#FFC107'];
+
+    // Message templates
+    const messageTemplates = [
+      'PING',
+      'PONG',
+      'ACK',
+      'SYN',
+      'REQUEST',
+      'RESPONSE',
+      'HEARTBEAT',
+      'VOTE',
+      'COMMIT',
+      'PREPARE',
+      'READY',
+      'DATA',
+      'UPDATE',
+      'CONFIRM',
+      'QUERY',
+    ];
+
+    // Create 6-8 participants
+    const participantCount = 6 + Math.floor(Math.random() * 3);
+    const participantIds: string[] = [];
+
+    for (let i = 0; i < participantCount; i++) {
+      const name = names[i % names.length];
+      const shape = shapes[i % shapes.length];
+      const color = colors[i % colors.length];
+      const id = this.simulation.addParticipant(name, shape, color);
+      participantIds.push(id);
+    }
+
+    // Generate messages over 30 seconds (30000ms)
+    const totalDuration = 30000;
+    const messageCount = 40 + Math.floor(Math.random() * 30); // 40-70 messages
+
+    let currentTime = 0;
+
+    for (let i = 0; i < messageCount; i++) {
+      // Pick random sender and receiver
+      const fromIdx = Math.floor(Math.random() * participantIds.length);
+      let toIdx;
+
+      // 10% chance of self-message, otherwise different participant
+      if (Math.random() < 0.1) {
+        toIdx = fromIdx;
+      } else {
+        toIdx = Math.floor(Math.random() * participantIds.length);
+        // Ensure sender and receiver are different
+        while (toIdx === fromIdx) {
+          toIdx = Math.floor(Math.random() * participantIds.length);
+        }
+      }
+
+      const from = participantIds[fromIdx];
+      const to = participantIds[toIdx];
+
+      // Random message
+      const text = messageTemplates[Math.floor(Math.random() * messageTemplates.length)];
+
+      // Duration between 800-2000ms
+      const duration = 800 + Math.floor(Math.random() * 1200);
+
+      // Random color (occasionally)
+      const color = Math.random() > 0.7 ? colors[Math.floor(Math.random() * colors.length)] : undefined;
+
+      this.simulation.addMessage(from, to, text, currentTime, duration, color);
+
+      // Advance time by 200-1200ms
+      currentTime += 200 + Math.floor(Math.random() * 1000);
+    }
+
+    // Update UI
+    this.updateParticipantList();
+    this.updateParticipantDropdowns();
+    this.updateMessageList();
+    this.updateTotalTime();
+
+    // Show success message
+    alert(`Generated ${participantCount} participants and ${messageCount} messages over ${(totalDuration / 1000).toFixed(1)}s!`);
   }
 
   private startAnimationLoop(): void {
