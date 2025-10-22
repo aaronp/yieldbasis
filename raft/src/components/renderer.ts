@@ -260,24 +260,84 @@ export class TimelineRenderer {
     });
   }
 
-  private getArcPoint(centerX: number, centerY: number, progress: number): { x: number; y: number } {
-    // Create a circular arc that goes out and back
-    const arcRadius = 80;
-    const angle = progress * Math.PI * 2; // Full circle
+  private getArcPoint(participantX: number, participantY: number, progress: number): { x: number; y: number } {
+    // Create an elliptic path with participant at one focus and canvas center at the other
+    // The participant and center are the two foci of the ellipse
 
-    const x = centerX + Math.cos(angle - Math.PI / 2) * arcRadius;
-    const y = centerY + Math.sin(angle - Math.PI / 2) * arcRadius;
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+
+    // Calculate distance between foci
+    const focalDistance = Math.sqrt(
+      Math.pow(participantX - centerX, 2) + Math.pow(participantY - centerY, 2)
+    );
+
+    // Semi-major axis (make the ellipse visually pleasing)
+    const a = focalDistance * 0.7;
+
+    // Calculate semi-minor axis using c² = a² - b² where c is half the focal distance
+    const c = focalDistance / 2;
+    const b = Math.sqrt(a * a - c * c);
+
+    // Midpoint between the two foci (center of ellipse)
+    const ellipseCenterX = (participantX + centerX) / 2;
+    const ellipseCenterY = (participantY + centerY) / 2;
+
+    // Angle of the major axis
+    const majorAxisAngle = Math.atan2(participantY - centerY, participantX - centerX);
+
+    // Parametric angle for the ellipse (0 to 2π)
+    const t = progress * Math.PI * 2;
+
+    // Point on ellipse in local coordinates
+    const localX = a * Math.cos(t);
+    const localY = b * Math.sin(t);
+
+    // Rotate and translate to world coordinates
+    const x = ellipseCenterX + localX * Math.cos(majorAxisAngle) - localY * Math.sin(majorAxisAngle);
+    const y = ellipseCenterY + localX * Math.sin(majorAxisAngle) + localY * Math.cos(majorAxisAngle);
 
     return { x, y };
   }
 
-  private drawArc(centerX: number, centerY: number, fill: boolean = false, progressLimit: number = 1.0): void {
-    const arcRadius = 80;
-    const startAngle = -Math.PI / 2;
-    const endAngle = startAngle + Math.PI * 2 * progressLimit;
+  private drawArc(participantX: number, participantY: number, fill: boolean = false, progressLimit: number = 1.0): void {
+    // Draw the elliptic arc by sampling points
+    const centerX = this.canvas.width / 2;
+    const centerY = this.canvas.height / 2;
+
+    const focalDistance = Math.sqrt(
+      Math.pow(participantX - centerX, 2) + Math.pow(participantY - centerY, 2)
+    );
+
+    const a = focalDistance * 0.7;
+    const c = focalDistance / 2;
+    const b = Math.sqrt(a * a - c * c);
+
+    const ellipseCenterX = (participantX + centerX) / 2;
+    const ellipseCenterY = (participantY + centerY) / 2;
+    const majorAxisAngle = Math.atan2(participantY - centerY, participantX - centerX);
 
     this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, arcRadius, startAngle, endAngle);
+
+    const steps = 100;
+    const endAngle = Math.PI * 2 * progressLimit;
+
+    for (let i = 0; i <= steps * progressLimit; i++) {
+      const t = (i / steps) * Math.PI * 2;
+      if (t > endAngle) break;
+
+      const localX = a * Math.cos(t);
+      const localY = b * Math.sin(t);
+
+      const x = ellipseCenterX + localX * Math.cos(majorAxisAngle) - localY * Math.sin(majorAxisAngle);
+      const y = ellipseCenterY + localX * Math.sin(majorAxisAngle) + localY * Math.cos(majorAxisAngle);
+
+      if (i === 0) {
+        this.ctx.moveTo(x, y);
+      } else {
+        this.ctx.lineTo(x, y);
+      }
+    }
 
     if (fill) {
       this.ctx.fill();

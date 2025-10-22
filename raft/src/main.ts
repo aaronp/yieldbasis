@@ -376,8 +376,6 @@ class TimelineApp {
     const totalDuration = 30000;
     const messageCount = 40 + Math.floor(Math.random() * 30); // 40-70 messages
 
-    let currentTime = 0;
-
     for (let i = 0; i < messageCount; i++) {
       // Pick random sender and receiver
       const fromIdx = Math.floor(Math.random() * participantIds.length);
@@ -400,16 +398,16 @@ class TimelineApp {
       // Random message
       const text = messageTemplates[Math.floor(Math.random() * messageTemplates.length)];
 
+      // Random timestamp within the total duration (allows concurrency)
+      const timestamp = Math.floor(Math.random() * totalDuration);
+
       // Duration between 800-2000ms
       const duration = 800 + Math.floor(Math.random() * 1200);
 
       // Random color (occasionally)
       const color = Math.random() > 0.7 ? colors[Math.floor(Math.random() * colors.length)] : undefined;
 
-      this.simulation.addMessage(from, to, text, currentTime, duration, color);
-
-      // Advance time by 200-1200ms
-      currentTime += 200 + Math.floor(Math.random() * 1000);
+      this.simulation.addMessage(from, to, text, timestamp, duration, color);
     }
 
     // Update UI

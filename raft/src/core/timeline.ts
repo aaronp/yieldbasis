@@ -6,6 +6,8 @@ export class TimelineSimulation {
   private readonly RADIUS = 250;
   private readonly CENTER_X = 500;
   private readonly CENTER_Y = 350;
+  private participantCounter = 0;
+  private messageCounter = 0;
 
   constructor() {
     this.state = {
@@ -50,7 +52,7 @@ export class TimelineSimulation {
   }
 
   public addParticipant(name: string, shape: ParticipantShape, color: string): string {
-    const id = `p${Date.now()}`;
+    const id = `p${this.participantCounter++}`;
 
     // New participant starts at center with 0 opacity, initially not visible
     const newParticipant: Participant = {
@@ -66,7 +68,36 @@ export class TimelineSimulation {
 
     this.state.participants.push(newParticipant);
 
+    // When manually adding (not during playback), show them immediately
+    this.repositionVisibleParticipants();
+
     return id;
+  }
+
+  private repositionVisibleParticipants() {
+    // Only reposition participants when not in playback mode
+    // This gives the nice slide-in effect when manually adding participants
+    if (this.state.running) return;
+
+    const count = this.state.participants.length;
+    if (count === 0) return;
+
+    const angleStep = (Math.PI * 2) / count;
+
+    this.state.participants.forEach((participant, i) => {
+      const angle = i * angleStep - Math.PI / 2;
+      const targetX = this.CENTER_X + Math.cos(angle) * this.RADIUS;
+      const targetY = this.CENTER_Y + Math.sin(angle) * this.RADIUS;
+
+      // Animate to new position
+      gsap.to(participant, {
+        x: targetX,
+        y: targetY,
+        opacity: 1,
+        duration: 0.8,
+        ease: 'power2.inOut',
+      });
+    });
   }
 
   public removeParticipant(id: string) {
@@ -108,7 +139,7 @@ export class TimelineSimulation {
   }
 
   public addMessage(from: string, to: string, text: string, timestamp: number, duration: number, color?: string): string {
-    const id = `m${Date.now()}`;
+    const id = `m${this.messageCounter++}`;
 
     const message: Message = {
       id,
