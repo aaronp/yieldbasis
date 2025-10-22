@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raft Consensus Algorithm Visualization</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #1a1a2e;
+        color: #eee;
+        overflow: hidden;
+      }
+
+      #app {
+        display: flex;
+        height: 100vh;
+      }
+
+      /* Sidebar */
+      .sidebar {
+        width: 300px;
+        background: #16213e;
+        border-right: 2px solid #0f3460;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+
+      .sidebar-section {
+        padding: 20px;
+        border-bottom: 1px solid #0f3460;
+      }
+
+      .sidebar-section h2 {
+        font-size: 16px;
+        margin-bottom: 15px;
+        color: #00d4ff;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .control-btn {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 10px;
+        background: #0f3460;
+        border: 2px solid #00d4ff;
+        color: #00d4ff;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.2s;
+      }
+
+      .control-btn:hover {
+        background: #00d4ff;
+        color: #16213e;
+      }
+
+      .control-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .control-btn.danger {
+        border-color: #ff4757;
+        color: #ff4757;
+      }
+
+      .control-btn.danger:hover {
+        background: #ff4757;
+        color: #fff;
+      }
+
+      .slider-control {
+        margin-bottom: 15px;
+      }
+
+      .slider-control label {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 5px;
+        color: #aaa;
+      }
+
+      .slider-control input {
+        width: 100%;
+      }
+
+      .slider-value {
+        display: inline-block;
+        float: right;
+        color: #00d4ff;
+        font-weight: 600;
+      }
+
+      .info-panel {
+        padding: 10px;
+        background: #0f3460;
+        border-radius: 4px;
+        font-size: 12px;
+        line-height: 1.6;
+        margin-bottom: 10px;
+      }
+
+      .info-panel strong {
+        color: #00d4ff;
+      }
+
+      /* Main Canvas Area */
+      .canvas-area {
+        flex: 1;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #raft-canvas {
+        flex: 1;
+        background: #1a1a2e;
+      }
+
+      /* Legend */
+      .legend {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(22, 33, 62, 0.9);
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #0f3460;
+        font-size: 12px;
+      }
+
+      .legend h3 {
+        margin-bottom: 10px;
+        color: #00d4ff;
+        font-size: 14px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .legend-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        margin-right: 10px;
+      }
+
+      .status-bar {
+        background: #16213e;
+        border-top: 2px solid #0f3460;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+      }
+
+      .status-item {
+        display: flex;
+        align-items: center;
+      }
+
+      .status-label {
+        color: #aaa;
+        margin-right: 10px;
+      }
+
+      .status-value {
+        color: #00d4ff;
+        font-weight: 600;
+        font-family: 'Courier New', monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Sidebar Controls -->
+      <div class="sidebar">
+        <div class="sidebar-section">
+          <h2>Raft Consensus</h2>
+          <div class="info-panel">
+            <strong>Leader Election:</strong> Watch nodes elect a leader through voting.
+            <br><br>
+            <strong>Log Replication:</strong> Observe how the leader replicates log entries to followers.
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Controls</h2>
+          <button class="control-btn" id="btn-start">Start Simulation</button>
+          <button class="control-btn" id="btn-stop" disabled>Stop Simulation</button>
+          <button class="control-btn" id="btn-reset">Reset</button>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Actions</h2>
+          <button class="control-btn" id="btn-add-entry">Add Log Entry</button>
+          <button class="control-btn danger" id="btn-stop-leader">Stop Leader</button>
+          <button class="control-btn danger" id="btn-stop-random">Stop Random Node</button>
+          <button class="control-btn" id="btn-restart-node">Restart Stopped Node</button>
+          <button class="control-btn" id="btn-partition">Create Network Partition</button>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Settings</h2>
+          <div class="slider-control">
+            <label>
+              Animation Speed
+              <span class="slider-value" id="speed-value">1.0x</span>
+            </label>
+            <input type="range" id="speed-slider" min="0.5" max="3" step="0.1" value="1.0">
+          </div>
+
+          <div class="slider-control">
+            <label>
+              Node Count
+              <span class="slider-value" id="node-count-value">5</span>
+            </label>
+            <input type="range" id="node-count-slider" min="3" max="9" step="2" value="5">
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Stats</h2>
+          <div id="stats" class="info-panel">
+            <div>Term: <strong id="stat-term">0</strong></div>
+            <div>Leader: <strong id="stat-leader">None</strong></div>
+            <div>Elections: <strong id="stat-elections">0</strong></div>
+            <div>Log Entries: <strong id="stat-entries">0</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Canvas -->
+      <div class="canvas-area">
+        <canvas id="raft-canvas"></canvas>
+
+        <!-- Legend -->
+        <div class="legend">
+          <h3>Node States</h3>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #4CAF50;"></div>
+            <span>Leader</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #FFC107;"></div>
+            <span>Candidate</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #2196F3;"></div>
+            <span>Follower</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #757575;"></div>
+            <span>Stopped</span>
+          </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+          <div class="status-item">
+            <span class="status-label">Simulation:</span>
+            <span class="status-value" id="status-sim">STOPPED</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Messages:</span>
+            <span class="status-value" id="status-messages">0</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Time:</span>
+            <span class="status-value" id="status-time">0.0s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
