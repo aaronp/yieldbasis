@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Path A - Minimal p5.js Ferret</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #1f2937;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    main {
+      display: block;
+    }
+    .info {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      color: #f6851b;
+      font-family: monospace;
+      font-size: 14px;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 15px;
+      border-radius: 8px;
+      z-index: 10;
+    }
+    .info h2 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+    }
+    .info p {
+      margin: 5px 0;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="info">
+    <h2>Path A: Minimal 2D (p5.js)</h2>
+    <p>✓ No build step</p>
+    <p>✓ 12 line segments</p>
+    <p>✓ Easing on pointermove</p>
+    <p>✓ GSAP burst animation</p>
+    <p><strong>Move your mouse!</strong></p>
+  </div>
+
+  <script>
+    // Ferret state
+    let segments = [];
+    let target = { x: 0, y: 0 };
+    let prevMouseX = 0;
+    let prevMouseY = 0;
+    let mouseSpeed = 0;
+    let isBursting = false;
+
+    const SEGMENT_COUNT = 12;
+    const SEGMENT_LENGTH = 20;
+    const EASING = 0.15;
+    const BURST_THRESHOLD = 15;
+
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+
+      // Initialize ferret segments in the center
+      for (let i = 0; i < SEGMENT_COUNT; i++) {
+        segments.push({
+          x: width / 2 - i * SEGMENT_LENGTH,
+          y: height / 2,
+          vx: 0,
+          vy: 0,
+          targetX: width / 2 - i * SEGMENT_LENGTH,
+          targetY: height / 2,
+          scale: 1
+        });
+      }
+
+      target.x = width / 2;
+      target.y = height / 2;
+    }
+
+    function draw() {
+      background(31, 41, 55);
+
+      // Calculate mouse speed for burst detection
+      let dx = mouseX - prevMouseX;
+      let dy = mouseY - prevMouseY;
+      mouseSpeed = sqrt(dx * dx + dy * dy);
+
+      // Trigger burst animation on fast movement
+      if (mouseSpeed > BURST_THRESHOLD && !isBursting) {
+        triggerBurst();
+      }
+
+      prevMouseX = mouseX;
+      prevMouseY = mouseY;
+
+      // Update target position
+      target.x = mouseX;
+      target.y = mouseY;
+
+      // Update ferret segments
+      updateSegments();
+
+      // Draw ferret
+      drawFerret();
+
+      // Draw cursor target (for debugging)
+      noStroke();
+      fill(246, 133, 27, 100);
+      circle(target.x, target.y, 10);
+    }
+
+    function updateSegments() {
+      // Head follows mouse with easing
+      let head = segments[0];
+      head.targetX = target.x;
+      head.targetY = target.y;
+
+      // Ease head toward target
+      head.vx = (head.targetX - head.x) * EASING;
+      head.vy = (head.targetY - head.y) * EASING;
+      head.x += head.vx;
+      head.y += head.vy;
+
+      // Body segments follow previous segment (follow-the-leader)
+      for (let i = 1; i < segments.length; i++) {
+        let segment = segments[i];
+        let prev = segments[i - 1];
+
+        // Calculate direction to previous segment
+        let dx = prev.x - segment.x;
+        let dy = prev.y - segment.y;
+        let distance = sqrt(dx * dx + dy * dy);
+
+        // Maintain segment length
+        if (distance > 0) {
+          let angle = atan2(dy, dx);
+          segment.targetX = prev.x - cos(angle) * SEGMENT_LENGTH;
+          segment.targetY = prev.y - sin(angle) * SEGMENT_LENGTH;
+        }
+
+        // Add wave motion for organic feel
+        let time = frameCount * 0.05;
+        let wave = sin(time + i * 0.5) * 5;
+        let perpAngle = atan2(dy, dx) + PI / 2;
+        segment.targetX += cos(perpAngle) * wave;
+        segment.targetY += sin(perpAngle) * wave;
+
+        // Ease toward target
+        segment.vx = (segment.targetX - segment.x) * EASING;
+        segment.vy = (segment.targetY - segment.y) * EASING;
+        segment.x += segment.vx;
+        segment.y += segment.vy;
+      }
+    }
+
+    function drawFerret() {
+      strokeWeight(3);
+
+      // Draw body segments
+      for (let i = 0; i < segments.length - 1; i++) {
+        let segment = segments[i];
+        let next = segments[i + 1];
+
+        // Color based on speed (orange when fast, blue when slow)
+        let speedFactor = constrain(mouseSpeed / BURST_THRESHOLD, 0, 1);
+        let r = lerp(3, 246, speedFactor);
+        let g = lerp(125, 133, speedFactor);
+        let b = lerp(214, 27, speedFactor);
+
+        stroke(r, g, b);
+
+        // Scale segments during burst
+        let scale = segment.scale || 1;
+        let thickness = 3 * scale;
+        strokeWeight(thickness);
+
+        line(segment.x, segment.y, next.x, next.y);
+      }
+
+      // Draw head as circle
+      let head = segments[0];
+      noStroke();
+      fill(246, 133, 27);
+      let headSize = 8 * (head.scale || 1);
+      circle(head.x, head.y, headSize);
+
+      // Draw eyes
+      fill(31, 41, 55);
+      let eyeOffset = 3;
+      let angle = atan2(target.y - head.y, target.x - head.x);
+      circle(head.x + cos(angle + 0.3) * eyeOffset, head.y + sin(angle + 0.3) * eyeOffset, 3);
+      circle(head.x + cos(angle - 0.3) * eyeOffset, head.y + sin(angle - 0.3) * eyeOffset, 3);
+    }
+
+    function triggerBurst() {
+      if (isBursting) return;
+      isBursting = true;
+
+      // GSAP timeline for burst animation
+      let tl = gsap.timeline({
+        onComplete: () => { isBursting = false; }
+      });
+
+      // Scale up all segments quickly
+      segments.forEach((segment, i) => {
+        tl.to(segment, {
+          scale: 1.5,
+          duration: 0.1,
+          ease: "power2.out"
+        }, i * 0.02);
+      });
+
+      // Scale back down
+      segments.forEach((segment, i) => {
+        tl.to(segment, {
+          scale: 1,
+          duration: 0.3,
+          ease: "elastic.out(1, 0.5)"
+        }, 0.2 + i * 0.02);
+      });
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+  </script>
+</body>
+</html>

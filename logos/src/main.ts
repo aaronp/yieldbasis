@@ -4,8 +4,9 @@ import { FoxMeshEffect } from './effects/foxMesh';
 import { LiquidMorphEffect } from './effects/liquidMorph';
 import { NetworkMeshEffect } from './effects/networkMesh';
 import { ParticleFieldEffect } from './effects/particleField';
+import { FerretEffect } from './effects/ferret';
 
-type EffectType = 'fox-mesh' | 'liquid' | 'network' | 'particles';
+type EffectType = 'fox-mesh' | 'liquid' | 'network' | 'particles' | 'ferret';
 
 interface EffectDescription {
   name: string;
@@ -52,6 +53,16 @@ const effectDescriptions: Record<EffectType, EffectDescription> = {
       'Attraction/repulsion dynamics',
       'Additive blending for glow',
       'Wave-based motion patterns',
+    ],
+  },
+  'ferret': {
+    name: 'Playful Ferret',
+    description: 'A wire-mesh ferret that chases your cursor with sinuous, organic movement.',
+    features: [
+      'Procedural spine animation',
+      'Mouse chase behavior',
+      'Sinusoidal wave motion',
+      'Dynamic color pulsing',
     ],
   },
 };
@@ -135,6 +146,9 @@ class App {
         break;
       case 'particles':
         this.currentEffect = new ParticleFieldEffect(this.canvas, this.config);
+        break;
+      case 'ferret':
+        this.currentEffect = new FerretEffect(this.canvas, this.config);
         break;
     }
 

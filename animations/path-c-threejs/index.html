@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Path C - Three.js Wireframe Ferret</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #1f2937;
+        font-family: monospace;
+      }
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      .info {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        color: #f6851b;
+        font-size: 14px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 15px;
+        border-radius: 8px;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .info h2 {
+        margin: 0 0 10px 0;
+        font-size: 18px;
+      }
+      .info p {
+        margin: 5px 0;
+        line-height: 1.5;
+      }
+      .controls {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        color: #037dd6;
+        font-size: 12px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 8px;
+        z-index: 10;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="info">
+      <h2>Path C: Three.js Wireframe</h2>
+      <p>✓ True 3D mesh with bones</p>
+      <p>✓ Raycaster for cursor tracking</p>
+      <p>✓ AnimationMixer + GSAP</p>
+      <p>✓ Look-at behavior</p>
+    </div>
+    <div class="controls">
+      <p>Move mouse to attract ferret</p>
+      <p>Watch it run and look at cursor!</p>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
