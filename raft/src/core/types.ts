@@ -1,58 +1,39 @@
-export type NodeState = 'follower' | 'candidate' | 'leader' | 'stopped';
+export type ParticipantShape = 'circle' | 'square' | 'triangle' | 'hexagon';
 
-export type MessageType = 'requestVote' | 'voteResponse' | 'appendEntries' | 'appendResponse';
-
-export interface LogEntry {
-  term: number;
-  index: number;
-  command: string;
-  committed: boolean;
+export interface Participant {
+  id: string;
+  name: string;
+  shape: ParticipantShape;
+  color: string;
+  x: number;
+  y: number;
+  targetX?: number;
+  targetY?: number;
+  opacity: number;
 }
 
 export interface Message {
-  type: MessageType;
-  from: number;
-  to: number;
-  term: number;
-  voteGranted?: boolean;
-  entries?: LogEntry[];
-  success?: boolean;
-  prevLogIndex?: number;
-  prevLogTerm?: number;
-  leaderCommit?: number;
+  id: string;
+  from: string;
+  to: string;
+  text: string;
+  timestamp: number;
+  duration: number; // How long message takes to travel (ms)
+  color?: string;
 }
 
-export interface RaftNode {
-  id: number;
-  state: NodeState;
-  currentTerm: number;
-  votedFor: number | null;
-  log: LogEntry[];
-  commitIndex: number;
-  lastApplied: number;
-
-  // Leader state
-  nextIndex?: Map<number, number>;
-  matchIndex?: Map<number, number>;
-
-  // Timing
-  electionTimeout: number;
-  electionTimer: number;
-  heartbeatTimer: number;
-
-  // Visual position
-  x: number;
-  y: number;
+export interface TimelineMessage extends Message {
+  progress: number; // 0-1 for animation
+  startTime: number;
+  endTime: number;
 }
 
 export interface SimulationState {
-  nodes: RaftNode[];
-  messages: Array<Message & { progress: number }>;
-  currentTerm: number;
-  leaderId: number | null;
-  totalElections: number;
-  totalMessages: number;
-  time: number;
+  participants: Participant[];
+  messages: Message[];
+  activeMessages: TimelineMessage[];
+  currentTime: number;
   running: boolean;
   speed: number;
+  totalMessages: number;
 }

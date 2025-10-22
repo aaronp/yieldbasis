@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Raft Consensus Algorithm Visualization</title>
+    <title>Distributed Systems Message Timeline</title>
     <style>
       * {
         margin: 0;
@@ -25,7 +25,7 @@
 
       /* Sidebar */
       .sidebar {
-        width: 300px;
+        width: 350px;
         background: #16213e;
         border-right: 2px solid #0f3460;
         display: flex;
@@ -44,6 +44,37 @@
         color: #00d4ff;
         text-transform: uppercase;
         letter-spacing: 1px;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      .form-group label {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 5px;
+        color: #aaa;
+      }
+
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        padding: 8px;
+        background: #0f3460;
+        border: 1px solid #00d4ff;
+        color: #fff;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+
+      .form-row {
+        display: flex;
+        gap: 10px;
+      }
+
+      .form-row .form-group {
+        flex: 1;
       }
 
       .control-btn {
@@ -65,9 +96,14 @@
         color: #16213e;
       }
 
-      .control-btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
+      .control-btn.success {
+        border-color: #4CAF50;
+        color: #4CAF50;
+      }
+
+      .control-btn.success:hover {
+        background: #4CAF50;
+        color: #fff;
       }
 
       .control-btn.danger {
@@ -80,8 +116,41 @@
         color: #fff;
       }
 
-      .slider-control {
-        margin-bottom: 15px;
+      .participant-list, .message-list {
+        max-height: 200px;
+        overflow-y: auto;
+        background: #0f3460;
+        border-radius: 4px;
+        padding: 10px;
+      }
+
+      .participant-item, .message-item {
+        padding: 8px;
+        margin-bottom: 5px;
+        background: #1a1a2e;
+        border-radius: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+      }
+
+      .participant-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-right: 8px;
+      }
+
+      .btn-remove {
+        background: #ff4757;
+        border: none;
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
       }
 
       .slider-control label {
@@ -91,28 +160,10 @@
         color: #aaa;
       }
 
-      .slider-control input {
-        width: 100%;
-      }
-
       .slider-value {
-        display: inline-block;
         float: right;
         color: #00d4ff;
         font-weight: 600;
-      }
-
-      .info-panel {
-        padding: 10px;
-        background: #0f3460;
-        border-radius: 4px;
-        font-size: 12px;
-        line-height: 1.6;
-        margin-bottom: 10px;
-      }
-
-      .info-panel strong {
-        color: #00d4ff;
       }
 
       /* Main Canvas Area */
@@ -123,62 +174,53 @@
         flex-direction: column;
       }
 
-      #raft-canvas {
+      #timeline-canvas {
         flex: 1;
         background: #1a1a2e;
       }
 
-      /* Legend */
-      .legend {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        background: rgba(22, 33, 62, 0.9);
-        padding: 15px;
-        border-radius: 8px;
-        border: 1px solid #0f3460;
-        font-size: 12px;
-      }
-
-      .legend h3 {
-        margin-bottom: 10px;
-        color: #00d4ff;
-        font-size: 14px;
-      }
-
-      .legend-item {
-        display: flex;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-
-      .legend-color {
-        width: 20px;
-        height: 20px;
-        border-radius: 4px;
-        margin-right: 10px;
-      }
-
-      .status-bar {
+      /* Timeline Controls */
+      .timeline-bar {
         background: #16213e;
         border-top: 2px solid #0f3460;
         padding: 15px 20px;
+      }
+
+      .timeline-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 10px;
+      }
+
+      .timeline-controls button {
+        padding: 8px 16px;
+        background: #0f3460;
+        border: 2px solid #00d4ff;
+        color: #00d4ff;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .timeline-controls button:hover {
+        background: #00d4ff;
+        color: #16213e;
+      }
+
+      .timeline-scrubber {
+        width: 100%;
+      }
+
+      .timeline-info {
         display: flex;
         justify-content: space-between;
         font-size: 12px;
-      }
-
-      .status-item {
-        display: flex;
-        align-items: center;
-      }
-
-      .status-label {
+        margin-top: 5px;
         color: #aaa;
-        margin-right: 10px;
       }
 
-      .status-value {
+      .time-display {
         color: #00d4ff;
         font-weight: 600;
         font-family: 'Courier New', monospace;
@@ -190,98 +232,110 @@
       <!-- Sidebar Controls -->
       <div class="sidebar">
         <div class="sidebar-section">
-          <h2>Raft Consensus</h2>
-          <div class="info-panel">
-            <strong>Leader Election:</strong> Watch nodes elect a leader through voting.
-            <br><br>
-            <strong>Log Replication:</strong> Observe how the leader replicates log entries to followers.
+          <h2>Add Participant</h2>
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="participant-name" placeholder="Server1" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Shape</label>
+              <select id="participant-shape">
+                <option value="circle">Circle</option>
+                <option value="square">Square</option>
+                <option value="triangle">Triangle</option>
+                <option value="hexagon">Hexagon</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Color</label>
+              <input type="color" id="participant-color" value="#4CAF50" />
+            </div>
+          </div>
+          <button class="control-btn success" id="btn-add-participant">Add Participant</button>
+
+          <h2 style="margin-top: 20px;">Participants</h2>
+          <div class="participant-list" id="participant-list">
+            <div style="text-align: center; color: #777;">No participants yet</div>
           </div>
         </div>
 
         <div class="sidebar-section">
-          <h2>Controls</h2>
-          <button class="control-btn" id="btn-start">Start Simulation</button>
-          <button class="control-btn" id="btn-stop" disabled>Stop Simulation</button>
-          <button class="control-btn" id="btn-reset">Reset</button>
+          <h2>Add Message</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label>From</label>
+              <select id="message-from">
+                <option value="">Select...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>To</label>
+              <select id="message-to">
+                <option value="">Select...</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Message Text</label>
+            <input type="text" id="message-text" placeholder="Hello!" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Timestamp (ms)</label>
+              <input type="number" id="message-timestamp" value="0" min="0" step="100" />
+            </div>
+            <div class="form-group">
+              <label>Duration (ms)</label>
+              <input type="number" id="message-duration" value="1000" min="100" step="100" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Color (optional)</label>
+            <input type="color" id="message-color" value="#00d4ff" />
+          </div>
+          <button class="control-btn success" id="btn-add-message">Add Message</button>
+
+          <h2 style="margin-top: 20px;">Messages (<span id="message-count">0</span>)</h2>
+          <div class="message-list" id="message-list">
+            <div style="text-align: center; color: #777;">No messages yet</div>
+          </div>
         </div>
 
         <div class="sidebar-section">
-          <h2>Actions</h2>
-          <button class="control-btn" id="btn-add-entry">Add Log Entry</button>
-          <button class="control-btn danger" id="btn-stop-leader">Stop Leader</button>
-          <button class="control-btn danger" id="btn-stop-random">Stop Random Node</button>
-          <button class="control-btn" id="btn-restart-node">Restart Stopped Node</button>
-          <button class="control-btn" id="btn-partition">Create Network Partition</button>
-        </div>
-
-        <div class="sidebar-section">
-          <h2>Settings</h2>
+          <h2>Speed</h2>
           <div class="slider-control">
             <label>
-              Animation Speed
+              Playback Speed
               <span class="slider-value" id="speed-value">1.0x</span>
             </label>
-            <input type="range" id="speed-slider" min="0.5" max="3" step="0.1" value="1.0">
-          </div>
-
-          <div class="slider-control">
-            <label>
-              Node Count
-              <span class="slider-value" id="node-count-value">5</span>
-            </label>
-            <input type="range" id="node-count-slider" min="3" max="9" step="2" value="5">
+            <input type="range" id="speed-slider" min="0.25" max="4" step="0.25" value="1.0">
           </div>
         </div>
 
         <div class="sidebar-section">
-          <h2>Stats</h2>
-          <div id="stats" class="info-panel">
-            <div>Term: <strong id="stat-term">0</strong></div>
-            <div>Leader: <strong id="stat-leader">None</strong></div>
-            <div>Elections: <strong id="stat-elections">0</strong></div>
-            <div>Log Entries: <strong id="stat-entries">0</strong></div>
-          </div>
+          <h2>Data</h2>
+          <button class="control-btn" id="btn-export">Export JSON</button>
+          <button class="control-btn" id="btn-import">Import JSON</button>
+          <button class="control-btn danger" id="btn-clear">Clear All</button>
         </div>
       </div>
 
       <!-- Main Canvas -->
       <div class="canvas-area">
-        <canvas id="raft-canvas"></canvas>
+        <canvas id="timeline-canvas"></canvas>
 
-        <!-- Legend -->
-        <div class="legend">
-          <h3>Node States</h3>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #4CAF50;"></div>
-            <span>Leader</span>
+        <!-- Timeline Controls -->
+        <div class="timeline-bar">
+          <div class="timeline-controls">
+            <button id="btn-play">▶ Play</button>
+            <button id="btn-pause">⏸ Pause</button>
+            <button id="btn-reset">⏮ Reset</button>
           </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #FFC107;"></div>
-            <span>Candidate</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #2196F3;"></div>
-            <span>Follower</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background: #757575;"></div>
-            <span>Stopped</span>
-          </div>
-        </div>
-
-        <!-- Status Bar -->
-        <div class="status-bar">
-          <div class="status-item">
-            <span class="status-label">Simulation:</span>
-            <span class="status-value" id="status-sim">STOPPED</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Messages:</span>
-            <span class="status-value" id="status-messages">0</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Time:</span>
-            <span class="status-value" id="status-time">0.0s</span>
+          <input type="range" id="timeline-scrubber" class="timeline-scrubber" min="0" max="10000" value="0" step="10">
+          <div class="timeline-info">
+            <span>Time: <span class="time-display" id="current-time">0.0s</span></span>
+            <span>Duration: <span class="time-display" id="total-time">0.0s</span></span>
           </div>
         </div>
       </div>
