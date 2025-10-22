@@ -261,30 +261,48 @@ export class TimelineRenderer {
   }
 
   private getArcPoint(participantX: number, participantY: number, progress: number): { x: number; y: number } {
-    // Create an elliptic path with participant at one focus and canvas center at the other
-    // The participant and center are the two foci of the ellipse
+    // Create an elliptic path where:
+    // - The outer edge of the participant node is tangent to the ellipse
+    // - The center of the participant circle is tangent to the ellipse
+    // This creates an ellipse that appears to go "through" the center
 
     const centerX = this.canvas.width / 2;
     const centerY = this.canvas.height / 2;
 
-    // Calculate distance between foci
-    const focalDistance = Math.sqrt(
+    // Distance from participant to circle center
+    const distance = Math.sqrt(
       Math.pow(participantX - centerX, 2) + Math.pow(participantY - centerY, 2)
     );
 
-    // Semi-major axis (make the ellipse visually pleasing)
-    const a = focalDistance * 0.7;
+    const participantRadius = 25; // NODE_SIZE / 2
 
-    // Calculate semi-minor axis using c² = a² - b² where c is half the focal distance
-    const c = focalDistance / 2;
-    const b = Math.sqrt(a * a - c * c);
+    // The ellipse should be tangent at the participant's outer edge and at the circle center
+    // Semi-major axis: half the distance plus the participant radius
+    const a = (distance + participantRadius) / 2;
 
-    // Midpoint between the two foci (center of ellipse)
-    const ellipseCenterX = (participantX + centerX) / 2;
-    const ellipseCenterY = (participantY + centerY) / 2;
+    // Semi-minor axis: make it proportional to create a nice ellipse
+    // We want it to bulge out perpendicular to the line connecting participant and center
+    const b = distance * 0.25; // Adjust this for more/less bulge
 
-    // Angle of the major axis
-    const majorAxisAngle = Math.atan2(participantY - centerY, participantX - centerX);
+    // Midpoint between tangent points
+    // One tangent is at participant edge (participantRadius from participant center toward circle center)
+    // Other tangent is at circle center
+    const angleToCenter = Math.atan2(centerY - participantY, centerX - participantX);
+
+    // First tangent point (outer edge of participant)
+    const tangent1X = participantX + Math.cos(angleToCenter) * participantRadius;
+    const tangent1Y = participantY + Math.sin(angleToCenter) * participantRadius;
+
+    // Second tangent point (circle center)
+    const tangent2X = centerX;
+    const tangent2Y = centerY;
+
+    // Ellipse center is midpoint between tangent points
+    const ellipseCenterX = (tangent1X + tangent2X) / 2;
+    const ellipseCenterY = (tangent1Y + tangent2Y) / 2;
+
+    // Angle of the major axis (aligned with line from participant to center)
+    const majorAxisAngle = angleToCenter;
 
     // Parametric angle for the ellipse (0 to 2π)
     const t = progress * Math.PI * 2;
@@ -305,26 +323,32 @@ export class TimelineRenderer {
     const centerX = this.canvas.width / 2;
     const centerY = this.canvas.height / 2;
 
-    const focalDistance = Math.sqrt(
+    const distance = Math.sqrt(
       Math.pow(participantX - centerX, 2) + Math.pow(participantY - centerY, 2)
     );
 
-    const a = focalDistance * 0.7;
-    const c = focalDistance / 2;
-    const b = Math.sqrt(a * a - c * c);
+    const participantRadius = 25; // NODE_SIZE / 2
 
-    const ellipseCenterX = (participantX + centerX) / 2;
-    const ellipseCenterY = (participantY + centerY) / 2;
-    const majorAxisAngle = Math.atan2(participantY - centerY, participantX - centerX);
+    const a = (distance + participantRadius) / 2;
+    const b = distance * 0.25;
+
+    const angleToCenter = Math.atan2(centerY - participantY, centerX - participantX);
+
+    const tangent1X = participantX + Math.cos(angleToCenter) * participantRadius;
+    const tangent1Y = participantY + Math.sin(angleToCenter) * participantRadius;
+    const tangent2X = centerX;
+    const tangent2Y = centerY;
+
+    const ellipseCenterX = (tangent1X + tangent2X) / 2;
+    const ellipseCenterY = (tangent1Y + tangent2Y) / 2;
+    const majorAxisAngle = angleToCenter;
 
     this.ctx.beginPath();
 
     const steps = 100;
-    const endAngle = Math.PI * 2 * progressLimit;
 
     for (let i = 0; i <= steps * progressLimit; i++) {
       const t = (i / steps) * Math.PI * 2;
-      if (t > endAngle) break;
 
       const localX = a * Math.cos(t);
       const localY = b * Math.sin(t);

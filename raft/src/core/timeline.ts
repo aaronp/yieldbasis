@@ -3,9 +3,9 @@ import gsap from 'gsap';
 
 export class TimelineSimulation {
   private state: SimulationState;
-  private readonly RADIUS = 250;
-  private readonly CENTER_X = 500;
-  private readonly CENTER_Y = 350;
+  private RADIUS = 250;
+  private CENTER_X = 500;
+  private CENTER_Y = 350;
   private participantCounter = 0;
   private messageCounter = 0;
 
@@ -330,6 +330,27 @@ export class TimelineSimulation {
     if (this.state.messages.length === 0) return 0;
     const lastMessage = this.state.messages[this.state.messages.length - 1];
     return lastMessage.timestamp + lastMessage.duration;
+  }
+
+  public setRadius(radius: number) {
+    this.RADIUS = radius;
+    // Reposition all participants with new radius
+    this.onParticipantVisibilityChanged();
+  }
+
+  public getRadius(): number {
+    return this.RADIUS;
+  }
+
+  public setCenter(x: number, y: number) {
+    this.CENTER_X = x;
+    this.CENTER_Y = y;
+    // Reposition all participants with new center
+    this.onParticipantVisibilityChanged();
+  }
+
+  public getCenter(): { x: number; y: number } {
+    return { x: this.CENTER_X, y: this.CENTER_Y };
   }
 
   public exportData(): string {

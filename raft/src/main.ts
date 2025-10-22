@@ -37,6 +37,10 @@ class TimelineApp {
   private speedSlider: HTMLInputElement;
   private speedValue: HTMLElement;
 
+  // Radius control
+  private radiusSlider: HTMLInputElement;
+  private radiusValue: HTMLElement;
+
   // Data controls
   private btnExport: HTMLButtonElement;
   private btnImport: HTMLButtonElement;
@@ -74,6 +78,9 @@ class TimelineApp {
 
     this.speedSlider = document.getElementById('speed-slider') as HTMLInputElement;
     this.speedValue = document.getElementById('speed-value')!;
+
+    this.radiusSlider = document.getElementById('radius-slider') as HTMLInputElement;
+    this.radiusValue = document.getElementById('radius-value')!;
 
     this.btnExport = document.getElementById('btn-export') as HTMLButtonElement;
     this.btnImport = document.getElementById('btn-import') as HTMLButtonElement;
@@ -117,6 +124,22 @@ class TimelineApp {
       const speed = parseFloat(target.value);
       this.simulation.setSpeed(speed);
       this.speedValue.textContent = `${speed.toFixed(2)}x`;
+    });
+
+    // Radius control
+    this.radiusSlider.addEventListener('input', (e) => {
+      const target = e.target as HTMLInputElement;
+      const radius = parseInt(target.value);
+      this.radiusValue.textContent = `${radius}px`;
+
+      // Update simulation radius
+      this.simulation.setRadius(radius);
+
+      // Calculate new center position (top-left aligned)
+      // When radius increases, center moves down and to the right to keep top-left alignment
+      const newCenterX = 350 + radius; // Base position + radius offset
+      const newCenterY = 350 + radius; // Base position + radius offset
+      this.simulation.setCenter(newCenterX, newCenterY);
     });
 
     // Data controls
