@@ -42,7 +42,11 @@ export default function TweenGraph() {
   const [nodePositions, setNodePositions] = useState(new Map());
   const [isAnimating, setIsAnimating] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [focusNode, setFocusNode] = useState(null);
+  const [maxDepth, setMaxDepth] = useState(3);
+  const [expandedNodes, setExpandedNodes] = useState(new Set());
   const animationRef = useRef(null);
+  const nodeIdCounter = useRef(0);
 
   // Pan and zoom state
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
@@ -83,16 +87,100 @@ export default function TweenGraph() {
     return () => window.removeEventListener('resize', resizeCanvas);
   }, [layoutManager]);
 
-  // Handle layout change with GSAP tweening
-  const changeLayout = (newLayoutType) => {
-    if (!layoutManager || isAnimating) return;
+  // Add wheel event listener with passive: false
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const delta = -e.deltaY * 0.001;
+      const newScale = Math.max(0.1, Math.min(5, transform.scale * (1 + delta)));
+
+      // Zoom towards mouse position
+      const worldBefore = screenToWorld(mouseX, mouseY);
+
+      setTransform(prev => {
+        const newTransform = { ...prev, scale: newScale };
+        const worldAfter = {
+          x: (mouseX - newTransform.x) / newTransform.scale,
+          y: (mouseY - newTransform.y) / newTransform.scale
+        };
+
+        return {
+          x: prev.x + (worldAfter.x - worldBefore.x) * newScale,
+          y: prev.y + (worldAfter.y - worldBefore.y) * newScale,
+          scale: newScale
+        };
+      });
+    };
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', handleWheel);
+  }, [transform]);
+
+  // Calculate distances from focus node
+  const getNodeDepths = () => {
+    if (!focusNode) return new Map();
+
+    const graphData = graphState.getData();
+    const depths = new Map();
+    const visited = new Set();
+    const queue = [{ id: focusNode, depth: 0 }];
+
+    depths.set(focusNode, 0);
+    visited.add(focusNode);
+
+    while (queue.length > 0) {
+      const { id, depth } = queue.shift();
+
+      // Find connected nodes
+      graphData.edges.forEach(edge => {
+        const nextId = edge.source === id ? edge.target : edge.target === id ? edge.source : null;
+        if (nextId && !visited.has(nextId)) {
+          visited.add(nextId);
+          depths.set(nextId, depth + 1);
+          queue.push({ id: nextId, depth: depth + 1 });
+        }
+      });
+    }
+
+    return depths;
+  };
+
+  // Get visible graph data based on focus and max depth
+  const getVisibleGraph = () => {
+    const fullData = graphState.getData();
+    if (!focusNode) return fullData;
+
+    const depths = getNodeDepths();
+    const visibleNodes = fullData.nodes.filter(n => {
+      const depth = depths.get(n.id);
+      return depth !== undefined && depth <= maxDepth;
+    });
+    const visibleNodeIds = new Set(visibleNodes.map(n => n.id));
+    const visibleEdges = fullData.edges.filter(e =>
+      visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target)
+    );
+
+    return { nodes: visibleNodes, edges: visibleEdges };
+  };
+
+  // Smooth transition helper
+  const transitionToNewLayout = (newGraphData, duration = 1) => {
+    if (!layoutManager) return;
 
     setIsAnimating(true);
-    const graphData = graphState.getData();
-    const newPositions = layoutManager.calculate(graphData, newLayoutType);
+    const newPositions = layoutManager.calculate(newGraphData, currentLayout);
 
     // Create animation objects for GSAP
     const animationTargets = [];
+
+    // Handle existing nodes
     nodePositions.forEach((oldPos, nodeId) => {
       const newPos = newPositions.get(nodeId);
       if (newPos) {
@@ -101,32 +189,53 @@ export default function TweenGraph() {
       }
     });
 
+    // Handle new nodes - start from center or parent position
+    newPositions.forEach((newPos, nodeId) => {
+      if (!nodePositions.has(nodeId)) {
+        const target = { x: newPos.x, y: newPos.y, opacity: 0 };
+        animationTargets.push({ nodeId, target, newPos: { ...newPos, opacity: 1 }, isNew: true });
+      }
+    });
+
     // Animate with GSAP
     if (animationRef.current) {
       animationRef.current.kill();
     }
 
+    // Build animation config
+    const animConfig = {
+      duration,
+      ease: "power2.inOut",
+      x: (i) => animationTargets[i].newPos.x,
+      y: (i) => animationTargets[i].newPos.y,
+      onUpdate: () => {
+        const updatedPositions = new Map();
+        animationTargets.forEach(({ nodeId, target }) => {
+          updatedPositions.set(nodeId, { x: target.x, y: target.y, opacity: target.opacity });
+        });
+        setNodePositions(updatedPositions);
+      },
+      onComplete: () => {
+        setIsAnimating(false);
+      },
+    };
+
+    // Only add opacity if we have new nodes
+    if (animationTargets.some(t => t.isNew)) {
+      animConfig.opacity = (i) => animationTargets[i].isNew ? 1 : animationTargets[i].target.opacity || 1;
+    }
+
     animationRef.current = gsap.to(
       animationTargets.map(t => t.target),
-      {
-        duration: 1,
-        ease: "power2.inOut",
-        x: (i) => animationTargets[i].newPos.x,
-        y: (i) => animationTargets[i].newPos.y,
-        onUpdate: () => {
-          // Update positions during animation
-          const updatedPositions = new Map();
-          animationTargets.forEach(({ nodeId, target }) => {
-            updatedPositions.set(nodeId, { x: target.x, y: target.y });
-          });
-          setNodePositions(updatedPositions);
-        },
-        onComplete: () => {
-          setIsAnimating(false);
-          setCurrentLayout(newLayoutType);
-        },
-      }
+      animConfig
     );
+  };
+
+  // Handle layout change with GSAP tweening
+  const changeLayout = (newLayoutType) => {
+    if (!layoutManager || isAnimating) return;
+    setCurrentLayout(newLayoutType);
+    transitionToNewLayout(getVisibleGraph(), 1);
   };
 
   // Canvas rendering
@@ -135,8 +244,8 @@ export default function TweenGraph() {
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
-    const graphData = graphState.getData();
-    const rect = canvas.getBoundingClientRect();
+    const visibleGraph = getVisibleGraph();
+    const nodeDepths = getNodeDepths();
 
     const render = () => {
       // Clear canvas
@@ -153,7 +262,7 @@ export default function TweenGraph() {
       // Draw edges
       ctx.strokeStyle = "#444";
       ctx.lineWidth = 2 / transform.scale;
-      graphData.edges.forEach((edge) => {
+      visibleGraph.edges.forEach((edge) => {
         const sourcePos = nodePositions.get(edge.source);
         const targetPos = nodePositions.get(edge.target);
         if (sourcePos && targetPos) {
@@ -165,24 +274,45 @@ export default function TweenGraph() {
       });
 
       // Draw nodes
-      graphData.nodes.forEach((node) => {
+      visibleGraph.nodes.forEach((node) => {
         const pos = nodePositions.get(node.id);
         if (!pos) return;
 
         const isSelected = selectedNode === node.id;
-        const radius = (isSelected ? 25 : 20) / transform.scale;
+        const isFocus = focusNode === node.id;
+        const isExpanded = expandedNodes.has(node.id);
+        const opacity = pos.opacity !== undefined ? pos.opacity : 1;
+
+        let radius = 20 / transform.scale;
+        if (isFocus) radius = 30 / transform.scale;
+        else if (isSelected) radius = 25 / transform.scale;
 
         // Node circle
+        ctx.globalAlpha = opacity;
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, radius, 0, 2 * Math.PI);
         ctx.fillStyle = COLORS[node.group] || "#666";
         ctx.fill();
 
-        // Selected outline
-        if (isSelected) {
+        // Focus outline (purple)
+        if (isFocus) {
+          ctx.strokeStyle = "#a855f7";
+          ctx.lineWidth = 4 / transform.scale;
+          ctx.stroke();
+        }
+        // Selected outline (white)
+        else if (isSelected) {
           ctx.strokeStyle = "#fff";
           ctx.lineWidth = 3 / transform.scale;
           ctx.stroke();
+        }
+
+        // Expanded indicator (inner dot)
+        if (isExpanded && !isFocus) {
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, 5 / transform.scale, 0, 2 * Math.PI);
+          ctx.fillStyle = "#fff";
+          ctx.fill();
         }
 
         // Label
@@ -191,13 +321,23 @@ export default function TweenGraph() {
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(node.label, pos.x, pos.y);
+
+        // Depth badge (if focus mode active)
+        if (focusNode && nodeDepths.has(node.id)) {
+          const depth = nodeDepths.get(node.id);
+          ctx.font = `${10 / transform.scale}px monospace`;
+          ctx.fillStyle = depth === maxDepth ? "#ef4444" : "#71717a";
+          ctx.fillText(`d:${depth}`, pos.x, pos.y + radius + 12 / transform.scale);
+        }
+
+        ctx.globalAlpha = 1;
       });
 
       ctx.restore();
     };
 
     render();
-  }, [nodePositions, selectedNode, graphState, transform]);
+  }, [nodePositions, selectedNode, focusNode, expandedNodes, graphState, transform, maxDepth]);
 
   // Transform screen coords to world coords
   const screenToWorld = (screenX, screenY) => {
@@ -205,6 +345,48 @@ export default function TweenGraph() {
       x: (screenX - transform.x) / transform.scale,
       y: (screenY - transform.y) / transform.scale
     };
+  };
+
+  // Expand node - create children and random connections
+  const expandNode = (nodeId) => {
+    if (expandedNodes.has(nodeId)) return; // Already expanded
+
+    const graphData = graphState.getData();
+    const parentNode = graphData.nodes.find(n => n.id === nodeId);
+    if (!parentNode) return;
+
+    // Generate 2-4 children
+    const numChildren = 2 + Math.floor(Math.random() * 3);
+    const newNodes = [];
+    const newEdges = [];
+
+    for (let i = 0; i < numChildren; i++) {
+      const childId = `${nodeId}-child-${nodeIdCounter.current++}`;
+      const childNode = {
+        id: childId,
+        label: `Node ${childId.slice(-3)}`,
+        group: ["team1", "team2", "team3"][Math.floor(Math.random() * 3)],
+      };
+      newNodes.push(childNode);
+      graphState.addNode(childNode);
+      graphState.addEdge({ source: nodeId, target: childId });
+      newEdges.push({ source: nodeId, target: childId });
+    }
+
+    // Add 0-2 random connections between new children and existing nearby nodes
+    const nearbyNodes = graphData.nodes.slice(0, 5); // Just grab first 5 for demo
+    for (let i = 0; i < Math.min(2, newNodes.length); i++) {
+      if (Math.random() > 0.5 && nearbyNodes.length > 0) {
+        const randomTarget = nearbyNodes[Math.floor(Math.random() * nearbyNodes.length)];
+        graphState.addEdge({ source: newNodes[i].id, target: randomTarget.id });
+      }
+    }
+
+    // Mark as expanded
+    setExpandedNodes(prev => new Set([...prev, nodeId]));
+
+    // Smooth transition
+    transitionToNewLayout(getVisibleGraph(), 0.8);
   };
 
   // Handle mouse down
@@ -217,10 +399,10 @@ export default function TweenGraph() {
       const world = screenToWorld(screenX, screenY);
 
       // Check if clicked on a node
-      const graphData = graphState.getData();
-      let clickedNode = null;
+      const visibleGraph = getVisibleGraph();
+      let clickedNodeId = null;
 
-      for (const node of graphData.nodes) {
+      for (const node of visibleGraph.nodes) {
         const pos = nodePositions.get(node.id);
         if (!pos) continue;
 
@@ -228,14 +410,16 @@ export default function TweenGraph() {
         const dy = world.y - pos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance < 20 / transform.scale) {
-          clickedNode = node.id;
+        if (distance < 30 / transform.scale) {
+          clickedNodeId = node.id;
           break;
         }
       }
 
-      if (clickedNode) {
-        setSelectedNode(clickedNode);
+      if (clickedNodeId) {
+        setSelectedNode(clickedNodeId);
+        setFocusNode(clickedNodeId);
+        expandNode(clickedNodeId);
       } else {
         // Start panning
         setIsDragging(true);
@@ -258,35 +442,6 @@ export default function TweenGraph() {
   // Handle mouse up
   const handleMouseUp = () => {
     setIsDragging(false);
-  };
-
-  // Handle wheel for zoom
-  const handleWheel = (e) => {
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const delta = -e.deltaY * 0.001;
-    const newScale = Math.max(0.1, Math.min(5, transform.scale * (1 + delta)));
-
-    // Zoom towards mouse position
-    const worldBefore = screenToWorld(mouseX, mouseY);
-
-    setTransform(prev => {
-      const newTransform = { ...prev, scale: newScale };
-      const worldAfter = {
-        x: (mouseX - newTransform.x) / newTransform.scale,
-        y: (mouseY - newTransform.y) / newTransform.scale
-      };
-
-      return {
-        x: prev.x + (worldAfter.x - worldBefore.x) * newScale,
-        y: prev.y + (worldAfter.y - worldBefore.y) * newScale,
-        scale: newScale
-      };
-    });
   };
 
   // Reset zoom
@@ -312,11 +467,8 @@ export default function TweenGraph() {
       graphState.addEdge({ source: randomNode.id, target: newId });
     }
 
-    // Recalculate layout
-    if (layoutManager) {
-      const newPositions = layoutManager.calculate(graphState.getData(), currentLayout);
-      setNodePositions(newPositions);
-    }
+    // Smooth transition
+    transitionToNewLayout(getVisibleGraph(), 0.8);
   };
 
   // Remove selected node
@@ -325,10 +477,21 @@ export default function TweenGraph() {
     graphState.removeNode(selectedNode);
     setSelectedNode(null);
 
-    // Recalculate layout
-    if (layoutManager) {
-      const newPositions = layoutManager.calculate(graphState.getData(), currentLayout);
-      setNodePositions(newPositions);
+    // Smooth transition
+    transitionToNewLayout(getVisibleGraph(), 0.8);
+  };
+
+  // Clear focus mode
+  const clearFocus = () => {
+    setFocusNode(null);
+    transitionToNewLayout(graphState.getData(), 0.8);
+  };
+
+  // Handle max depth change
+  const handleMaxDepthChange = (newDepth) => {
+    setMaxDepth(newDepth);
+    if (focusNode) {
+      transitionToNewLayout(getVisibleGraph(), 0.6);
     }
   };
 
@@ -362,6 +525,43 @@ export default function TweenGraph() {
           </select>
         </div>
 
+        {/* Focus Mode Controls */}
+        {focusNode && (
+          <div className="mb-6 p-4 bg-purple-900/30 border border-purple-700 rounded-md">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-purple-300">
+                Focus Mode
+              </h3>
+              <button
+                onClick={clearFocus}
+                className="text-xs text-purple-400 hover:text-purple-300"
+              >
+                Clear
+              </button>
+            </div>
+            <div className="text-xs text-purple-200 mb-3">
+              Focus: {graphState.getData().nodes.find((n) => n.id === focusNode)?.label}
+            </div>
+            <div>
+              <label className="block text-xs text-purple-300 mb-2">
+                Max Depth: {maxDepth}
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="5"
+                value={maxDepth}
+                onChange={(e) => handleMaxDepthChange(parseInt(e.target.value))}
+                className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+              />
+              <div className="flex justify-between text-xs text-zinc-500 mt-1">
+                <span>1</span>
+                <span>5</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Node Actions */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-zinc-300 mb-2">
@@ -373,7 +573,7 @@ export default function TweenGraph() {
               disabled={isAnimating}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
             >
-              Add Node
+              Add Random Node
             </button>
             <button
               onClick={removeNode}
@@ -406,8 +606,9 @@ export default function TweenGraph() {
         {/* Stats */}
         <div className="mt-auto pt-4 border-t border-zinc-800">
           <div className="text-xs text-zinc-500">
-            <div>Nodes: {graphState.getData().nodes.length}</div>
-            <div>Edges: {graphState.getData().edges.length}</div>
+            <div>Total Nodes: {graphState.getData().nodes.length}</div>
+            <div>Total Edges: {graphState.getData().edges.length}</div>
+            {focusNode && <div>Visible: {getVisibleGraph().nodes.length} nodes</div>}
             <div>Layout: {currentLayout}</div>
             <div>Status: {isAnimating ? "Animating..." : "Ready"}</div>
           </div>
@@ -422,7 +623,6 @@ export default function TweenGraph() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
           className="w-full h-full"
           style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
         />
@@ -434,9 +634,15 @@ export default function TweenGraph() {
 
         {/* Instructions */}
         <div className="absolute top-4 right-4 px-3 py-2 bg-zinc-800/90 border border-zinc-700 rounded-md text-xs text-zinc-400">
+          <div className="font-semibold mb-1">Explore Graph</div>
+          <div>👆 Click node to expand</div>
           <div>🖱️ Drag to pan</div>
           <div>🔍 Scroll to zoom</div>
-          <div>👆 Click node to select</div>
+          {focusNode && (
+            <div className="mt-2 pt-2 border-t border-zinc-700 text-purple-400">
+              🎯 Focus mode active
+            </div>
+          )}
         </div>
       </div>
     </div>
