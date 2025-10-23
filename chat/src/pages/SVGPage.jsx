@@ -1,0 +1,115 @@
+import React, { useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+
+export default function SVGPage() {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const container = containerRef.current;
+    container.innerHTML = `
+      <div class="flex h-screen bg-gray-50">
+        <!-- Sidebar -->
+        <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
+          <div class="p-4 border-b border-gray-200">
+            <h1 class="text-2xl font-bold text-gray-900">Vanilla SVG</h1>
+            <p class="text-sm text-gray-600 mt-1">Graph Visualization</p>
+          </div>
+
+          <!-- Dataset Selector -->
+          <div class="p-4 border-b border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Dataset</label>
+            <select id="dataset-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="social-network">Social Network</option>
+              <option value="hierarchy">Organization Hierarchy</option>
+              <option value="dependencies">Software Dependencies</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-2">⚠️ Large network not recommended</p>
+          </div>
+
+          <!-- Search -->
+          <div class="p-4 border-b border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Search Nodes</label>
+            <input
+              type="text"
+              id="search-input"
+              placeholder="Type to search..."
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <!-- Layout Controls -->
+          <div class="p-4 border-b border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Layout</label>
+            <select id="layout-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+              <option value="circular">Circular</option>
+              <option value="grid">Grid</option>
+              <option value="random">Random</option>
+            </select>
+            <button id="apply-layout" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition mb-3">
+              Apply Layout
+            </button>
+
+            <!-- Physics Toggle -->
+            <div class="flex items-center justify-between">
+              <label class="text-xs text-gray-600">Connected Node Physics</label>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="physics-toggle" class="sr-only peer" checked>
+                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">When enabled, connected nodes move together</div>
+          </div>
+
+          <!-- Node Details -->
+          <div class="flex-1 p-4 overflow-y-auto">
+            <div class="text-sm font-medium text-gray-700 mb-2">Selected Node</div>
+            <div id="node-details" class="text-sm text-gray-600">
+              Click on a node to see details
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="p-4 border-t border-gray-200 bg-gray-50">
+            <div class="text-xs text-gray-600">
+              <div id="stats">Loading...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Graph Container -->
+        <div class="flex-1 relative">
+          <svg id="graph-svg" class="w-full h-full bg-white"></svg>
+
+          <!-- Info Overlay -->
+          <div class="absolute top-4 right-4 bg-white border border-gray-300 rounded-md shadow-sm p-3 max-w-xs">
+            <div class="text-xs text-gray-600">
+              <div class="font-medium mb-1">No dependencies</div>
+              <div>Pure TypeScript + SVG</div>
+              <div class="mt-2 text-gray-500">Drag nodes to reposition</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    import("../demos/svg/main.ts");
+
+    return () => {
+      container.innerHTML = "";
+    };
+  }, []);
+
+  return (
+    <div className="relative h-screen">
+      <Link
+        to="/"
+        className="absolute top-4 left-4 z-50 px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+      >
+        ← Back
+      </Link>
+      <div ref={containerRef} className="h-full" />
+    </div>
+  );
+}

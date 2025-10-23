@@ -1,0 +1,130 @@
+import React, { useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import * as d3 from "d3";
+
+export default function D3Page() {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    // Create the D3 demo HTML structure
+    const container = containerRef.current;
+    container.innerHTML = `
+      <div class="flex h-screen bg-gray-50">
+        <!-- Sidebar -->
+        <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
+          <div class="p-4 border-b border-gray-200">
+            <h1 class="text-2xl font-bold text-gray-900">D3.js</h1>
+            <p class="text-sm text-gray-600 mt-1">Graph Visualization</p>
+          </div>
+
+          <!-- Dataset Selector -->
+          <div class="p-4 border-b border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Dataset</label>
+            <select id="dataset-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="social-network">Social Network</option>
+              <option value="hierarchy">Organization Hierarchy</option>
+              <option value="dependencies">Software Dependencies</option>
+              <option value="large-network">Large Network</option>
+            </select>
+          </div>
+
+          <!-- Search -->
+          <div class="p-4 border-b border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Search Nodes</label>
+            <input
+              type="text"
+              id="search-input"
+              placeholder="Type to search..."
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <!-- Layout Controls -->
+          <div class="p-4 border-b border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Layout Algorithm</label>
+            <select id="layout-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+              <option value="force">Force-Directed</option>
+              <option value="tree">Tree (Hierarchy)</option>
+              <option value="radial">Radial Tree</option>
+            </select>
+            <button id="restart-simulation" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition mb-3">
+              Restart Simulation
+            </button>
+
+            <!-- Physics Controls (Force Layout Only) -->
+            <div id="physics-controls" class="space-y-3">
+              <div class="text-xs font-medium text-gray-700 mb-2">Physics Settings</div>
+
+              <div>
+                <label class="text-xs text-gray-600">Charge Strength</label>
+                <input type="range" id="charge-strength" min="-1000" max="-50" value="-300" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                <div class="text-xs text-gray-500 text-right" id="charge-value">-300</div>
+              </div>
+
+              <div>
+                <label class="text-xs text-gray-600">Link Distance</label>
+                <input type="range" id="link-distance" min="20" max="200" value="100" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                <div class="text-xs text-gray-500 text-right" id="link-value">100</div>
+              </div>
+
+              <div>
+                <label class="text-xs text-gray-600">Collision Radius</label>
+                <input type="range" id="collision-radius" min="10" max="50" value="20" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                <div class="text-xs text-gray-500 text-right" id="collision-value">20</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Node Details -->
+          <div class="flex-1 p-4 overflow-y-auto">
+            <div class="text-sm font-medium text-gray-700 mb-2">Selected Node</div>
+            <div id="node-details" class="text-sm text-gray-600">
+              Click on a node to see details
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="p-4 border-t border-gray-200 bg-gray-50">
+            <div class="text-xs text-gray-600">
+              <div id="stats">Loading...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Graph Container -->
+        <div class="flex-1 relative">
+          <svg id="graph-svg" class="w-full h-full bg-white"></svg>
+
+          <!-- Controls Overlay -->
+          <div class="absolute top-4 right-4 flex gap-2">
+            <button id="zoom-in" class="px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">+</button>
+            <button id="zoom-out" class="px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">-</button>
+            <button id="reset-view" class="px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">Reset</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Import and run the D3 demo logic
+    import("../demos/d3/main.ts");
+
+    return () => {
+      // Cleanup
+      container.innerHTML = "";
+    };
+  }, []);
+
+  return (
+    <div className="relative h-screen">
+      <Link
+        to="/"
+        className="absolute top-4 left-4 z-50 px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+      >
+        ← Back
+      </Link>
+      <div ref={containerRef} className="h-full" />
+    </div>
+  );
+}

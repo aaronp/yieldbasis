@@ -5,7 +5,22 @@
       "Bash(npm run dev:*)",
       "Bash(npm run build:*)",
       "Bash(pkill:*)",
-      "Bash(timeout 10 npx tsc --noEmit)"
+      "Bash(timeout 10 npx tsc --noEmit)",
+      "Bash(bun add:*)",
+      "Bash(bun run:*)",
+      "Bash(lsof:*)",
+      "Bash(timeout:*)",
+      "Bash(gtimeout:*)",
+      "Bash(for f in /Users/aaron/dev/sandbox/graphs/chat/public/*.json)",
+      "Bash(do echo \"Checking $f\")",
+      "Bash(node -e \"JSON.parse(require(''fs'').readFileSync(''$f'', ''utf8''))\")",
+      "Bash(done)",
+      "Bash(bun pm ls:*)",
+      "Read(//private/tmp/**)",
+      "Bash(cat:*)",
+      "Bash(npx vite:*)",
+      "Bash(npm ls:*)",
+      "Bash(bun remove:*)"
     ],
     "deny": [],
     "ask": []
