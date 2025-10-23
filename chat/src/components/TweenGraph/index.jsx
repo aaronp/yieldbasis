@@ -74,10 +74,13 @@ export default function TweenGraph() {
       // Update layout manager size
       if (layoutManager) {
         layoutManager.updateSize(rect.width, rect.height);
+        // Recalculate positions with current layout when resizing
+        const positions = layoutManager.calculate(getVisibleGraph(), currentLayout);
+        setNodePositions(positions);
       } else {
         const manager = new LayoutManager(rect.width, rect.height);
         setLayoutManager(manager);
-        const positions = manager.calculate(graphState.getData(), "force");
+        const positions = manager.calculate(graphState.getData(), currentLayout);
         setNodePositions(positions);
       }
     };
@@ -85,7 +88,7 @@ export default function TweenGraph() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     return () => window.removeEventListener('resize', resizeCanvas);
-  }, [layoutManager]);
+  }, [layoutManager, currentLayout, focusNode, maxDepth]);
 
   // Add wheel event listener with passive: false
   useEffect(() => {
@@ -180,16 +183,16 @@ export default function TweenGraph() {
     // Create animation objects for GSAP
     const animationTargets = [];
 
-    // Handle existing nodes
+    // Handle existing nodes - preserve their opacity
     nodePositions.forEach((oldPos, nodeId) => {
       const newPos = newPositions.get(nodeId);
       if (newPos) {
-        const target = { x: oldPos.x, y: oldPos.y };
-        animationTargets.push({ nodeId, target, newPos });
+        const target = { x: oldPos.x, y: oldPos.y, opacity: oldPos.opacity !== undefined ? oldPos.opacity : 1 };
+        animationTargets.push({ nodeId, target, newPos: { ...newPos, opacity: 1 } });
       }
     });
 
-    // Handle new nodes - start from center or parent position
+    // Handle new nodes - fade them in
     newPositions.forEach((newPos, nodeId) => {
       if (!nodePositions.has(nodeId)) {
         const target = { x: newPos.x, y: newPos.y, opacity: 0 };

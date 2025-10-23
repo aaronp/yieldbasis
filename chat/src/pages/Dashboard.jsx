@@ -4,6 +4,12 @@ import { Link } from "react-router-dom";
 export default function Dashboard() {
   const demos = [
     {
+      name: "Graph Editor",
+      path: "/editor",
+      description: "Production-ready graph editor with CRUD API and visualization",
+      color: "bg-cyan-500",
+    },
+    {
       name: "Chat",
       path: "/chat",
       description: "Animated chat with graph visualization",

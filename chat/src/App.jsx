@@ -6,6 +6,7 @@ import D3Page from "./pages/D3Page";
 import SVGPage from "./pages/SVGPage";
 import RaftPage from "./pages/RaftPage";
 import TweenPage from "./pages/TweenPage";
+import GraphEditorPage from "./pages/GraphEditorPage";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/svg" element={<SVGPage />} />
         <Route path="/raft" element={<RaftPage />} />
         <Route path="/tween" element={<TweenPage />} />
+        <Route path="/editor" element={<GraphEditorPage />} />
       </Routes>
     </BrowserRouter>
   );
