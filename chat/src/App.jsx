@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ForceGraph2D from "react-force-graph-2d";
 import {
   Search, Users, MessageSquare, ChevronLeft, ChevronRight, X,
-  Menu, User, Settings, ArrowDownRight, ArrowUpRight, GripHorizontal
+  Menu, User, Settings, ArrowDownRight, ArrowUpRight, GripHorizontal, GripVertical
 } from "lucide-react";
 
 // --- Mock chat data ----------------------------------------------------------
@@ -91,6 +91,7 @@ export default function App() {
 
   // Details panel state
   const [detailsSplit, setDetailsSplit] = useState(50); // percentage for graph row
+  const [detailsWidth, setDetailsWidth] = useState(400); // width in pixels
 
   // Budget data
   const [accounts, setAccounts] = useState({ cash: 500, family: 1200, savings: 3000 });
@@ -164,8 +165,6 @@ export default function App() {
 
   // Calculate column widths
   const navWidth = navOpen ? 280 : 0;
-  const chatWidth = chatOpen ? "1fr" : "0px";
-  const detailsWidth = "400px";
 
   return (
     <div className="w-full h-full bg-zinc-950 text-zinc-100 flex flex-col">
@@ -178,11 +177,7 @@ export default function App() {
       />
 
       {/* Main content row */}
-      <div className="flex-1 grid overflow-hidden"
-        style={{
-          gridTemplateColumns: `${navWidth}px ${chatWidth} ${detailsWidth}`
-        }}>
-
+      <div className="flex-1 flex overflow-hidden">
         {/* Nav Column */}
         <NavColumn
           navOpen={navOpen}
@@ -204,6 +199,12 @@ export default function App() {
           viewport={viewport}
         />
 
+        {/* Vertical Resize Handle */}
+        <VerticalResizeHandle
+          detailsWidth={detailsWidth}
+          setDetailsWidth={setDetailsWidth}
+        />
+
         {/* Details Column */}
         <DetailsColumn
           activeContact={activeContact}
@@ -214,6 +215,7 @@ export default function App() {
           accounts={accounts}
           acctRefs={acctRefs}
           txs={txs}
+          detailsWidth={detailsWidth}
         />
       </div>
 
@@ -267,8 +269,8 @@ function AppBar({ navOpen, setNavOpen, chatOpen, setChatOpen }) {
 function NavColumn({ navOpen, activeContactId, setActiveContactId, setStatus }) {
   return (
     <motion.aside
-      className="h-full border-r border-zinc-800 bg-zinc-900/30 overflow-hidden"
-      animate={{ opacity: navOpen ? 1 : 0 }}
+      className="h-full border-r border-zinc-800 bg-zinc-900/30 overflow-hidden flex-shrink-0"
+      animate={{ opacity: navOpen ? 1 : 0, width: navOpen ? 280 : 0 }}
       transition={{ duration: 0.2 }}
     >
       <div className="h-full flex flex-col">
@@ -327,11 +329,8 @@ function ChatColumn({
   addTxFromMessage, coins, txs, acctRefs, viewport
 }) {
   return (
-    <motion.section
-      className="h-full overflow-hidden border-r border-zinc-800 relative"
-      animate={{ opacity: chatOpen ? 1 : 0 }}
-      transition={{ duration: 0.2 }}
-    >
+    <section className="h-full overflow-hidden relative flex-1 min-w-0">
+      {/* Added flex-1 and min-w-0 for proper flex behavior */}
       <div className="h-full grid grid-rows-[auto_1fr_auto]">
         {/* Chat header */}
         <div className="h-14 border-b border-zinc-800 flex items-center gap-3 px-4 bg-zinc-900/20">
@@ -396,14 +395,46 @@ function ChatColumn({
           </button>
         </div>
       </div>
-    </motion.section>
+    </section>
+  );
+}
+
+// --- VerticalResizeHandle Component -----------------------------------------
+function VerticalResizeHandle({ detailsWidth, setDetailsWidth }) {
+  const [isResizing, setIsResizing] = useState(false);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e) => {
+      const newWidth = window.innerWidth - e.clientX;
+      setDetailsWidth(Math.max(300, Math.min(800, newWidth)));
+    };
+
+    const handleMouseUp = () => setIsResizing(false);
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing, setDetailsWidth]);
+
+  return (
+    <div
+      className="w-1 bg-zinc-800 hover:bg-indigo-600 cursor-col-resize transition flex items-center justify-center group flex-shrink-0"
+      onMouseDown={() => setIsResizing(true)}
+    >
+      <GripVertical size={14} className="opacity-0 group-hover:opacity-50 transition" />
+    </div>
   );
 }
 
 // --- DetailsColumn Component -------------------------------------------------
 function DetailsColumn({
   activeContact, detailsSplit, setDetailsSplit, selectedNode,
-  setSelectedNode, accounts, acctRefs, txs
+  setSelectedNode, accounts, acctRefs, txs, detailsWidth
 }) {
   const graphContainerRef = useRef(null);
   const [graphDims, setGraphDims] = useState({ w: 380, h: 300 });
@@ -456,7 +487,7 @@ function DetailsColumn({
   }, [activeContact]);
 
   return (
-    <aside className="h-full bg-zinc-900/20 flex flex-col">
+    <aside className="h-full bg-zinc-900/20 flex flex-col flex-shrink-0" style={{ width: `${detailsWidth}px` }}>
       {/* Graph row */}
       <div
         ref={graphContainerRef}
