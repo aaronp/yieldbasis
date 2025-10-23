@@ -21,6 +21,21 @@ const GROUPS = [
   { id: "band", name: "Band", color: "bg-cyan-500" },
 ];
 
+// Extended relationship data for graph expansion
+const RELATIONSHIPS = {
+  // Contacts to groups
+  alice: ["family", "product", "friends"],
+  bob: ["product", "friends", "band"],
+  carol: ["family", "friends"],
+  dave: ["band", "friends"],
+
+  // Groups to contacts (reverse relationships)
+  family: ["alice", "carol"],
+  product: ["alice", "bob"],
+  friends: ["alice", "bob", "carol", "dave"],
+  band: ["bob", "dave"],
+};
+
 const MESSAGES = {
   alice: [
     { id: "m1", from: "Alice", text: "Hey! Did you see the new design?", dt: "10:02" },
@@ -81,6 +96,101 @@ function centerOf(el) {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
+// Graph building helpers
+function getNodeInfo(nodeId) {
+  const [kind, id] = nodeId.split(":");
+  if (kind === "contact") {
+    const contact = CONTACTS.find((c) => c.id === id);
+    return { id: nodeId, label: contact.name, kind: "contact", color: contact.color, rawId: id };
+  } else if (kind === "group") {
+    const group = GROUPS.find((g) => g.id === id);
+    return { id: nodeId, label: group.name, kind: "group", color: group.color, rawId: id };
+  }
+  return null;
+}
+
+function getRelationships(nodeId) {
+  const [kind, id] = nodeId.split(":");
+  const related = RELATIONSHIPS[id] || [];
+  if (kind === "contact") {
+    return related.map((gId) => `group:${gId}`);
+  } else if (kind === "group") {
+    return related.map((cId) => `contact:${cId}`);
+  }
+  return [];
+}
+
+function buildGraphWithDepth(focusNodeId, expandedNodeIds, maxDepth) {
+  const nodes = new Map();
+  const links = new Set();
+  const distances = new Map();
+
+  // First pass: BFS from focus node to calculate distances
+  const queue = [[focusNodeId, 0]];
+  const visited = new Set([focusNodeId]);
+  distances.set(focusNodeId, 0);
+
+  while (queue.length > 0) {
+    const [nodeId, dist] = queue.shift();
+
+    // Add all relationships for expanded nodes (to build complete graph)
+    if (expandedNodeIds.has(nodeId)) {
+      const related = getRelationships(nodeId);
+
+      for (const relatedId of related) {
+        // Add link
+        const linkKey = [nodeId, relatedId].sort().join(":");
+        links.add(linkKey);
+
+        // Calculate distance for related node if not visited
+        if (!visited.has(relatedId)) {
+          visited.add(relatedId);
+          const relatedDist = dist + 1;
+
+          // Store minimum distance
+          if (!distances.has(relatedId) || relatedDist < distances.get(relatedId)) {
+            distances.set(relatedId, relatedDist);
+          }
+
+          queue.push([relatedId, relatedDist]);
+        }
+      }
+    }
+  }
+
+  // Second pass: build nodes and links, filtering by maxDepth from focus
+  for (const [nodeId, dist] of distances.entries()) {
+    if (dist <= maxDepth) {
+      const nodeInfo = getNodeInfo(nodeId);
+      if (nodeInfo) {
+        nodes.set(nodeId, { ...nodeInfo, distance: dist });
+      }
+    }
+  }
+
+  // Filter links to only include nodes within maxDepth
+  const filteredLinks = [];
+  for (const linkKey of links) {
+    const [source, target] = linkKey.split(":");
+    const fullSource = source + ":" + linkKey.split(":")[1];
+    const fullTarget = linkKey.split(":").slice(2).join(":");
+
+    // Reconstruct original node IDs
+    const parts = linkKey.split(":");
+    let sourceId = parts[0] + ":" + parts[1];
+    let targetId = parts[2] + ":" + parts[3];
+
+    if (nodes.has(sourceId) && nodes.has(targetId)) {
+      filteredLinks.push({ source: sourceId, target: targetId });
+    }
+  }
+
+  return {
+    nodes: Array.from(nodes.values()),
+    links: filteredLinks
+  };
+}
+
 // --- Main App Component ------------------------------------------------------
 export default function App() {
   // Navigation state
@@ -88,6 +198,21 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(true);
   const [activeContactId, setActiveContactId] = useState(CONTACTS[0].id);
   const [selectedNode, setSelectedNode] = useState(null);
+
+  // Graph state
+  const [expandedNodes, setExpandedNodes] = useState(new Set([`contact:${CONTACTS[0].id}`]));
+  const [focusNode, setFocusNode] = useState(`contact:${CONTACTS[0].id}`); // Node to measure depth from
+  const [maxDepth, setMaxDepth] = useState(3);
+
+  // Graph physics settings
+  const [graphSettings, setGraphSettings] = useState({
+    chargeStrength: -300,
+    linkDistance: 80,
+    centerStrength: 0.3,
+    cooldownTicks: 0, // 0 = continuous
+    warmupTicks: 100,
+    velocityDecay: 0.4,
+  });
 
   // Details panel state
   const [detailsSplit, setDetailsSplit] = useState(50); // percentage for graph row
@@ -108,6 +233,14 @@ export default function App() {
 
   const activeMessages = useMemo(() => MESSAGES[activeContactId] ?? [], [activeContactId]);
   const activeContact = useMemo(() => CONTACTS.find((c) => c.id === activeContactId), [activeContactId]);
+
+  // Reset graph when active contact changes
+  useEffect(() => {
+    const contactNodeId = `contact:${activeContactId}`;
+    setFocusNode(contactNodeId);
+    setExpandedNodes(new Set([contactNodeId]));
+    setSelectedNode(null);
+  }, [activeContactId]);
 
   useLayoutEffect(() => {
     const onScroll = () => setViewport({ x: window.scrollX, y: window.scrollY });
@@ -203,6 +336,7 @@ export default function App() {
         <VerticalResizeHandle
           detailsWidth={detailsWidth}
           setDetailsWidth={setDetailsWidth}
+          navOpen={navOpen}
         />
 
         {/* Details Column */}
@@ -216,6 +350,15 @@ export default function App() {
           acctRefs={acctRefs}
           txs={txs}
           detailsWidth={detailsWidth}
+          expandedNodes={expandedNodes}
+          setExpandedNodes={setExpandedNodes}
+          focusNode={focusNode}
+          setFocusNode={setFocusNode}
+          maxDepth={maxDepth}
+          setMaxDepth={setMaxDepth}
+          graphSettings={graphSettings}
+          setGraphSettings={setGraphSettings}
+          setStatus={setStatus}
         />
       </div>
 
@@ -400,15 +543,23 @@ function ChatColumn({
 }
 
 // --- VerticalResizeHandle Component -----------------------------------------
-function VerticalResizeHandle({ detailsWidth, setDetailsWidth }) {
+function VerticalResizeHandle({ detailsWidth, setDetailsWidth, navOpen }) {
   const [isResizing, setIsResizing] = useState(false);
+  const containerRef = useRef(null);
 
   useEffect(() => {
     if (!isResizing) return;
 
     const handleMouseMove = (e) => {
+      // Calculate available width (accounting for nav column)
+      const navWidth = navOpen ? 280 : 0; // width of nav when open
+      const minChatWidth = 200; // minimum chat width
+      const minDetailsWidth = 300; // minimum details width
+
       const newWidth = window.innerWidth - e.clientX;
-      setDetailsWidth(Math.max(300, Math.min(800, newWidth)));
+      const maxDetailsWidth = window.innerWidth - navWidth - minChatWidth;
+
+      setDetailsWidth(Math.max(minDetailsWidth, Math.min(maxDetailsWidth, newWidth)));
     };
 
     const handleMouseUp = () => setIsResizing(false);
@@ -423,6 +574,7 @@ function VerticalResizeHandle({ detailsWidth, setDetailsWidth }) {
 
   return (
     <div
+      ref={containerRef}
       className="w-1 bg-zinc-800 hover:bg-indigo-600 cursor-col-resize transition flex items-center justify-center group flex-shrink-0"
       onMouseDown={() => setIsResizing(true)}
     >
@@ -434,12 +586,17 @@ function VerticalResizeHandle({ detailsWidth, setDetailsWidth }) {
 // --- DetailsColumn Component -------------------------------------------------
 function DetailsColumn({
   activeContact, detailsSplit, setDetailsSplit, selectedNode,
-  setSelectedNode, accounts, acctRefs, txs, detailsWidth
+  setSelectedNode, accounts, acctRefs, txs, detailsWidth,
+  expandedNodes, setExpandedNodes, focusNode, setFocusNode,
+  maxDepth, setMaxDepth, graphSettings, setGraphSettings, setStatus
 }) {
   const graphContainerRef = useRef(null);
+  const graphRef = useRef(null);
   const [graphDims, setGraphDims] = useState({ w: 380, h: 300 });
   const resizeRef = useRef(null);
   const [isResizing, setIsResizing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [prevGraphData, setPrevGraphData] = useState({ nodes: [], links: [] });
 
   useEffect(() => {
     const el = graphContainerRef.current;
@@ -478,13 +635,68 @@ function DetailsColumn({
   }, [isResizing]);
 
   const graphData = useMemo(() => {
-    const nodes = [
-      { id: `contact:${activeContact.id}`, label: activeContact.name, kind: "contact", color: activeContact.color },
-      ...GROUPS.map((g) => ({ id: `group:${g.id}`, label: g.name, kind: "group", color: g.color })),
-    ];
-    const links = GROUPS.map((g) => ({ source: `contact:${activeContact.id}`, target: `group:${g.id}` }));
-    return { nodes, links };
-  }, [activeContact]);
+    const newData = buildGraphWithDepth(focusNode, expandedNodes, maxDepth);
+
+    // Position new nodes at their parent's location for smooth expansion
+    if (graphRef.current && prevGraphData.nodes.length > 0) {
+      const prevNodeMap = new Map(prevGraphData.nodes.map(n => [n.id, n]));
+
+      newData.nodes.forEach(node => {
+        const prevNode = prevNodeMap.get(node.id);
+        if (prevNode) {
+          // Preserve position for existing nodes
+          node.x = prevNode.x;
+          node.y = prevNode.y;
+          node.vx = prevNode.vx || 0;
+          node.vy = prevNode.vy || 0;
+        } else {
+          // New node - find parent and position it there
+          const parentLink = newData.links.find(l =>
+            (l.target === node.id || l.target.id === node.id) &&
+            prevNodeMap.has(typeof l.source === 'object' ? l.source.id : l.source)
+          );
+
+          if (parentLink) {
+            const parentId = typeof parentLink.source === 'object' ? parentLink.source.id : parentLink.source;
+            const parent = prevNodeMap.get(parentId);
+            if (parent) {
+              node.x = parent.x;
+              node.y = parent.y;
+              node.vx = 0;
+              node.vy = 0;
+            }
+          }
+        }
+      });
+    }
+
+    setPrevGraphData(newData);
+    return newData;
+  }, [focusNode, expandedNodes, maxDepth]);
+
+  const handleNodeClick = (node) => {
+    setSelectedNode(node);
+    setFocusNode(node.id); // Change focus to clicked node
+
+    // Expand this node if not already expanded
+    if (!expandedNodes.has(node.id)) {
+      setExpandedNodes(new Set([...expandedNodes, node.id]));
+      setStatus(`Expanded ${node.label} - now focused, showing relationships within depth ${maxDepth}`);
+    } else {
+      setStatus(`Focused on ${node.label} - depth ${maxDepth}`);
+    }
+  };
+
+  const handleRefocus = () => {
+    if (!selectedNode) return;
+
+    // Refocus: center on selected node and expand its immediate connections
+    setFocusNode(selectedNode.id);
+    const related = getRelationships(selectedNode.id);
+    const newExpanded = new Set([selectedNode.id, ...related]);
+    setExpandedNodes(newExpanded);
+    setStatus(`Refocused on ${selectedNode.label} - expanded immediate connections`);
+  };
 
   return (
     <aside className="h-full bg-zinc-900/20 flex flex-col flex-shrink-0" style={{ width: `${detailsWidth}px` }}>
@@ -494,37 +706,236 @@ function DetailsColumn({
         className="border-b border-zinc-800 overflow-hidden flex flex-col"
         style={{ height: `${detailsSplit}%` }}
       >
-        <div className="p-4 border-b border-zinc-800">
-          <div className="text-xs uppercase tracking-wide text-zinc-400">Relationship Graph</div>
-          <div className="text-xs text-zinc-500 mt-1">
-            {activeContact.name}'s network
+        <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-zinc-400">Relationship Graph</div>
+            <div className="text-xs text-zinc-500 mt-1">
+              {selectedNode ? `Focused on ${selectedNode.label}` : `${activeContact.name}'s network`}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              className="px-3 py-1.5 text-xs rounded-lg bg-zinc-800 hover:bg-zinc-700 transition border border-zinc-700"
+            >
+              {settingsOpen ? 'Hide' : 'Show'} Settings
+            </button>
+            {selectedNode && (
+              <button
+                onClick={handleRefocus}
+                className="px-3 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-500 transition font-medium"
+              >
+                Refocus
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="flex-1 p-4">
+        <div className="flex-1 p-4 relative">
           <ForceGraph2D
+            ref={graphRef}
             width={graphDims.w}
             height={graphDims.h}
             graphData={graphData}
-            nodeLabel={(n) => n.label}
-            nodeRelSize={6}
-            cooldownTicks={40}
-            linkColor={() => "#444"}
+            nodeLabel={(n) => {
+              const isFocus = n.id === focusNode;
+              const isExpanded = expandedNodes.has(n.id);
+              const dist = n.distance || 0;
+              return `${n.label} (${n.kind}) | Distance: ${dist}${isFocus ? ' [FOCUS]' : ''}${isExpanded ? ' [Expanded]' : ' [Click to expand]'}`;
+            }}
+            nodeRelSize={8}
+            cooldownTicks={graphSettings.cooldownTicks}
+            warmupTicks={graphSettings.warmupTicks}
+            d3Force={{
+              charge: { strength: graphSettings.chargeStrength },
+              link: { distance: graphSettings.linkDistance },
+              center: { strength: graphSettings.centerStrength },
+            }}
+            d3VelocityDecay={graphSettings.velocityDecay}
+            linkColor={() => "#555"}
+            linkWidth={1.5}
             nodeCanvasObject={(node, ctx, globalScale) => {
               const label = node.label;
               const fontSize = 11 / Math.sqrt(globalScale);
+              const isFocus = node.id === focusNode;
+              const isExpanded = expandedNodes.has(node.id);
+              const nodeSize = isFocus ? 13 : isExpanded ? 9 : 7;
+
+              // Draw node circle
               ctx.beginPath();
-              ctx.arc(node.x, node.y, 8, 0, 2 * Math.PI, false);
+              ctx.arc(node.x, node.y, nodeSize, 0, 2 * Math.PI, false);
               ctx.fillStyle = getTailwindBgColor(node.color) || "#71717a";
               ctx.fill();
+
+              // Draw border for focus node (thicker, more prominent)
+              if (isFocus) {
+                ctx.strokeStyle = "#6366f1";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+              }
+
+              // Draw dot indicator for expanded nodes
+              if (isExpanded && !isFocus) {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 2.5, 0, 2 * Math.PI, false);
+                ctx.fillStyle = "#fff";
+                ctx.fill();
+              }
+
+              // Draw label
               ctx.font = `${fontSize}px sans-serif`;
               ctx.textAlign = "center";
               ctx.textBaseline = "top";
-              ctx.fillStyle = "#e5e7eb";
-              ctx.fillText(label, node.x, node.y + 10);
+              ctx.fillStyle = isFocus ? "#e0e7ff" : "#e5e7eb";
+              ctx.fillText(label, node.x, node.y + nodeSize + 2);
+
+              // Draw distance badge (only if not focus)
+              if (node.distance !== undefined && node.distance > 0) {
+                ctx.font = `${fontSize * 0.75}px monospace`;
+                ctx.fillStyle = node.distance > maxDepth * 0.8 ? "#ef4444" : "#71717a";
+                ctx.fillText(`d:${node.distance}`, node.x, node.y + nodeSize + fontSize + 3);
+              }
             }}
-            onNodeClick={(n) => setSelectedNode(n)}
+            onNodeClick={handleNodeClick}
           />
+
+          {/* Controls Panel */}
+          <div className="absolute bottom-2 left-2 flex flex-col gap-2">
+            {/* Max Depth Control */}
+            <div className="bg-zinc-900/90 backdrop-blur-sm border border-zinc-700 rounded-lg px-3 py-2 shadow-lg">
+              <label className="flex items-center gap-2 text-xs">
+                <span className="text-zinc-400">Max Depth:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={maxDepth}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 1;
+                    setMaxDepth(Math.max(1, Math.min(10, val)));
+                    setStatus(`Max depth set to ${val}`);
+                  }}
+                  className="w-14 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-xs text-center outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </label>
+            </div>
+
+            {/* Physics Settings Panel */}
+            {settingsOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="bg-zinc-900/95 backdrop-blur-sm border border-zinc-700 rounded-lg px-3 py-3 shadow-xl max-w-xs"
+              >
+                <div className="text-xs font-semibold text-zinc-300 mb-3">Physics Settings</div>
+                <div className="space-y-3">
+                  {/* Charge Strength */}
+                  <div>
+                    <label className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
+                      <span>Charge Strength</span>
+                      <span className="tabular-nums">{graphSettings.chargeStrength}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="-1000"
+                      max="-50"
+                      step="10"
+                      value={graphSettings.chargeStrength}
+                      onChange={(e) => setGraphSettings({ ...graphSettings, chargeStrength: parseInt(e.target.value) })}
+                      className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Link Distance */}
+                  <div>
+                    <label className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
+                      <span>Link Distance</span>
+                      <span className="tabular-nums">{graphSettings.linkDistance}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="30"
+                      max="200"
+                      step="5"
+                      value={graphSettings.linkDistance}
+                      onChange={(e) => setGraphSettings({ ...graphSettings, linkDistance: parseInt(e.target.value) })}
+                      className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Center Strength */}
+                  <div>
+                    <label className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
+                      <span>Center Strength</span>
+                      <span className="tabular-nums">{graphSettings.centerStrength.toFixed(2)}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={graphSettings.centerStrength}
+                      onChange={(e) => setGraphSettings({ ...graphSettings, centerStrength: parseFloat(e.target.value) })}
+                      className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Velocity Decay */}
+                  <div>
+                    <label className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
+                      <span>Velocity Decay</span>
+                      <span className="tabular-nums">{graphSettings.velocityDecay.toFixed(2)}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="0.9"
+                      step="0.05"
+                      value={graphSettings.velocityDecay}
+                      onChange={(e) => setGraphSettings({ ...graphSettings, velocityDecay: parseFloat(e.target.value) })}
+                      className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Warmup Ticks */}
+                  <div>
+                    <label className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
+                      <span>Warmup Ticks</span>
+                      <span className="tabular-nums">{graphSettings.warmupTicks}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="200"
+                      step="10"
+                      value={graphSettings.warmupTicks}
+                      onChange={(e) => setGraphSettings({ ...graphSettings, warmupTicks: parseInt(e.target.value) })}
+                      className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Reset Button */}
+                  <button
+                    onClick={() => {
+                      setGraphSettings({
+                        chargeStrength: -300,
+                        linkDistance: 80,
+                        centerStrength: 0.3,
+                        cooldownTicks: 0,
+                        warmupTicks: 100,
+                        velocityDecay: 0.4,
+                      });
+                      setStatus('Reset physics to defaults');
+                    }}
+                    className="w-full mt-2 px-2 py-1.5 text-[10px] rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700"
+                  >
+                    Reset to Defaults
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
         </div>
       </div>
 
