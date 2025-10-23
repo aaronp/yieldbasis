@@ -5,6 +5,7 @@ import ChatPage from "./pages/ChatPage";
 import D3Page from "./pages/D3Page";
 import SVGPage from "./pages/SVGPage";
 import RaftPage from "./pages/RaftPage";
+import TweenPage from "./pages/TweenPage";
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/d3" element={<D3Page />} />
         <Route path="/svg" element={<SVGPage />} />
         <Route path="/raft" element={<RaftPage />} />
+        <Route path="/tween" element={<TweenPage />} />
       </Routes>
     </BrowserRouter>
   );

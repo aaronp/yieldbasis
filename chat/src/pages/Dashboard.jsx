@@ -10,6 +10,12 @@ export default function Dashboard() {
       color: "bg-blue-500",
     },
     {
+      name: "Tween Graph",
+      path: "/tween",
+      description: "Smooth layout transitions with GSAP tweening",
+      color: "bg-pink-500",
+    },
+    {
       name: "D3 Graph",
       path: "/d3",
       description: "D3.js force-directed, hierarchy, and radial layouts",
